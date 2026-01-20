@@ -1,0 +1,13 @@
+Vamos a continuar el proyecto ConectaPro.
+
+Reglas:
+- El Documento Maestro es la fuente de verdad.
+- No cambies decisiones cerradas.
+- El proyecto es multi-servicio y multi-proveedor desde el diseño.
+- Prioriza despliegue temprano y validación END TO END.
+- Indica siempre pasos concretos y archivos exactos para copy/paste.
+
+Aquí está el Documento Maestro:
+[ docs/MVP_conectapro.md]
+
+Te adjunto el zip con todo el codigo fuente actual.

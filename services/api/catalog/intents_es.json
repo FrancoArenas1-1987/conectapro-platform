@@ -1,0 +1,893 @@
+{
+  "version": "2026-01-20",
+  "language": "es",
+  "intents": [
+    {
+      "id": "IT_PC_REPAIR",
+      "label": "Reparación de computadores / notebooks",
+      "aliases": [
+        "técnico computacional",
+        "tecnico computacional",
+        "técnico pc",
+        "tecnico pc",
+        "reparación pc",
+        "reparacion pc",
+        "reparación notebook",
+        "reparacion notebook",
+        "reparación laptop",
+        "reparacion laptop",
+        "reparación computador",
+        "reparacion computador",
+        "servicio técnico pc",
+        "servicio tecnico pc"
+      ],
+      "keywords": [
+        "computador",
+        "pc",
+        "notebook",
+        "laptop",
+        "pantalla",
+        "no prende",
+        "no enciende",
+        "formatear",
+        "windows",
+        "virus",
+        "reparar",
+        "hardware",
+        "teclado",
+        "batería",
+        "bateria",
+        "disco",
+        "ssd",
+        "ram",
+        "cargador"
+      ]
+    },
+    {
+      "id": "IT_NETWORK_WIFI",
+      "label": "Red / WiFi / Internet hogar",
+      "aliases": [
+        "técnico wifi",
+        "tecnico wifi",
+        "red",
+        "redes",
+        "internet",
+        "router",
+        "modem"
+      ],
+      "keywords": [
+        "wifi",
+        "wi-fi",
+        "internet",
+        "router",
+        "módem",
+        "modem",
+        "señal",
+        "cobertura",
+        "configurar",
+        "password",
+        "lento",
+        "no conecta"
+      ]
+    },
+    {
+      "id": "HOME_ELECTRICIAN",
+      "label": "Electricista domicilio",
+      "aliases": [
+        "electricista",
+        "electricidad",
+        "instalación eléctrica",
+        "instalacion electrica"
+      ],
+      "keywords": [
+        "luz",
+        "corte",
+        "corto",
+        "cortocircuito",
+        "enchufe",
+        "interruptor",
+        "tablero",
+        "diferencial",
+        "automático",
+        "automatico",
+        "cables",
+        "ampolleta",
+        "luminaria",
+        "toma"
+      ]
+    },
+    {
+      "id": "HOME_PLUMBING",
+      "label": "Gasfiter / Plomería",
+      "aliases": [
+        "gasfiter",
+        "gasfitería",
+        "gasfiteria",
+        "plomero",
+        "plomería",
+        "plomeria"
+      ],
+      "keywords": [
+        "gotea",
+        "fuga",
+        "filtración",
+        "filtracion",
+        "cañería",
+        "caneria",
+        "llave",
+        "wc",
+        "water",
+        "ducha",
+        "lavaplatos",
+        "lavamanos",
+        "sifón",
+        "sifon",
+        "destapar",
+        "alcantarillado"
+      ]
+    },
+    {
+      "id": "HOME_ROOFING",
+      "label": "Techumbre / Filtraciones",
+      "aliases": [
+        "techumbre",
+        "techo",
+        "goteras",
+        "filtraciones"
+      ],
+      "keywords": [
+        "techo",
+        "gotera",
+        "goteras",
+        "filtración",
+        "filtracion",
+        "humedad",
+        "tejas",
+        "zinc",
+        "canaleta"
+      ]
+    },
+    {
+      "id": "HOME_LOCKSMITH",
+      "label": "Cerrajero",
+      "aliases": [
+        "cerrajero",
+        "cerrajería",
+        "cerrajeria",
+        "cerradura"
+      ],
+      "keywords": [
+        "llave",
+        "cerradura",
+        "candado",
+        "puerta",
+        "se quedó afuera",
+        "me quedé afuera",
+        "abrir",
+        "cambio de chapa",
+        "chapa"
+      ]
+    },
+    {
+      "id": "HOME_GASFITTER_GAS",
+      "label": "Gas (instalación / certificación)",
+      "aliases": [
+        "gas",
+        "instalador de gas",
+        "gasfiter gas",
+        "certificación gas",
+        "certificacion gas"
+      ],
+      "keywords": [
+        "gas",
+        "fuga gas",
+        "olor a gas",
+        "calefont",
+        "cocina",
+        "sello",
+        "certificar",
+        "sec"
+      ]
+    },
+    {
+      "id": "HOME_APPLIANCE_REPAIR",
+      "label": "Reparación electrodomésticos",
+      "aliases": [
+        "reparación lavadora",
+        "reparacion lavadora",
+        "reparación refrigerador",
+        "reparacion refrigerador",
+        "reparación refri",
+        "reparacion refri"
+      ],
+      "keywords": [
+        "lavadora",
+        "refrigerador",
+        "refri",
+        "secadora",
+        "microondas",
+        "horno",
+        "cocina",
+        "no funciona",
+        "no enciende",
+        "ruido",
+        "pierde agua"
+      ]
+    },
+    {
+      "id": "HOME_AIRCON_HEATING",
+      "label": "Aire acondicionado / Calefacción",
+      "aliases": [
+        "aire acondicionado",
+        "climatización",
+        "climatizacion",
+        "calefacción",
+        "calefaccion"
+      ],
+      "keywords": [
+        "aire",
+        "split",
+        "clima",
+        "frío",
+        "frio",
+        "calor",
+        "mantención",
+        "mantencion",
+        "recarga",
+        "gas refrigerante",
+        "estufa"
+      ]
+    },
+    {
+      "id": "HOME_PEST_CONTROL",
+      "label": "Control de plagas",
+      "aliases": [
+        "fumigación",
+        "fumigacion",
+        "control plagas",
+        "exterminador"
+      ],
+      "keywords": [
+        "plaga",
+        "cucarachas",
+        "hormigas",
+        "ratones",
+        "termitas",
+        "pulgas",
+        "chinches",
+        "fumigar",
+        "desratizar"
+      ]
+    },
+    {
+      "id": "HOME_CLEANING",
+      "label": "Aseo / Limpieza domicilio",
+      "aliases": [
+        "aseo",
+        "limpieza",
+        "nana",
+        "empleada",
+        "limpiar"
+      ],
+      "keywords": [
+        "aseo",
+        "limpieza",
+        "limpiar",
+        "casa",
+        "departamento",
+        "oficina",
+        "vidrios",
+        "alfombra"
+      ]
+    },
+    {
+      "id": "HOME_GARDENING",
+      "label": "Jardinería",
+      "aliases": [
+        "jardinero",
+        "jardinería",
+        "jardineria",
+        "poda"
+      ],
+      "keywords": [
+        "jardín",
+        "jardin",
+        "pasto",
+        "césped",
+        "cesped",
+        "poda",
+        "árbol",
+        "arbol",
+        "riego",
+        "paisajismo"
+      ]
+    },
+    {
+      "id": "HOME_PAINTING",
+      "label": "Pintor / Pintura",
+      "aliases": [
+        "pintor",
+        "pintura",
+        "pintar"
+      ],
+      "keywords": [
+        "pintar",
+        "pintura",
+        "muro",
+        "pared",
+        "cielo",
+        "esmalte",
+        "látex",
+        "latex",
+        "brocha",
+        "rodillo"
+      ]
+    },
+    {
+      "id": "HOME_CARPENTRY",
+      "label": "Carpintero",
+      "aliases": [
+        "carpintero",
+        "muebles",
+        "mueblería",
+        "muebleria"
+      ],
+      "keywords": [
+        "mueble",
+        "muebles",
+        "reparar",
+        "armar",
+        "puerta",
+        "closet",
+        "cocina",
+        "melamina",
+        "madera"
+      ]
+    },
+    {
+      "id": "HOME_MASONRY",
+      "label": "Maestro / Albañilería",
+      "aliases": [
+        "albañil",
+        "albanil",
+        "maestro",
+        "construcción",
+        "construccion"
+      ],
+      "keywords": [
+        "construir",
+        "muro",
+        "cemento",
+        "cerámica",
+        "ceramica",
+        "radier",
+        "ladrillo",
+        "yeso",
+        "tabique"
+      ]
+    },
+    {
+      "id": "HOME_TILES_FLOOR",
+      "label": "Piso / Cerámica / Porcelanato",
+      "aliases": [
+        "cerámica",
+        "ceramica",
+        "porcelanato",
+        "instalación piso",
+        "instalacion piso"
+      ],
+      "keywords": [
+        "piso",
+        "cerámica",
+        "ceramica",
+        "porcelanato",
+        "fragüe",
+        "frague",
+        "nivelar",
+        "adhesivo",
+        "palmetas"
+      ]
+    },
+    {
+      "id": "HOME_MOVING",
+      "label": "Fletes / Mudanzas",
+      "aliases": [
+        "mudanza",
+        "flete",
+        "camión",
+        "camion"
+      ],
+      "keywords": [
+        "mudanza",
+        "flete",
+        "camión",
+        "camion",
+        "traslado",
+        "cargar",
+        "descargar",
+        "embalar"
+      ]
+    },
+    {
+      "id": "AUTO_MECHANIC",
+      "label": "Mecánico automotriz",
+      "aliases": [
+        "mecánico",
+        "mecanico",
+        "taller",
+        "mecánica"
+      ],
+      "keywords": [
+        "auto",
+        "motor",
+        "frenos",
+        "aceite",
+        "batería",
+        "bateria",
+        "ruido",
+        "revisión",
+        "revision",
+        "scanner"
+      ]
+    },
+    {
+      "id": "AUTO_TOWING",
+      "label": "Grúa / Asistencia en ruta",
+      "aliases": [
+        "grúa",
+        "grua",
+        "asistencia",
+        "remolque"
+      ],
+      "keywords": [
+        "grúa",
+        "grua",
+        "remolque",
+        "pinchazo",
+        "batería",
+        "bateria",
+        "no parte",
+        "ruta"
+      ]
+    },
+    {
+      "id": "HEALTH_KINESIOLOGY",
+      "label": "Kinesiólogo",
+      "aliases": [
+        "kinesiólogo",
+        "kinesiologo",
+        "kine",
+        "kinesiología",
+        "kinesiologia"
+      ],
+      "keywords": [
+        "kine",
+        "rehabilitación",
+        "rehabilitacion",
+        "dolor",
+        "lesión",
+        "lesion",
+        "rodilla",
+        "espalda",
+        "post operatorio",
+        "masaje"
+      ]
+    },
+    {
+      "id": "HEALTH_PSYCHOLOGY",
+      "label": "Psicólogo",
+      "aliases": [
+        "psicólogo",
+        "psicologo",
+        "terapia"
+      ],
+      "keywords": [
+        "ansiedad",
+        "estrés",
+        "estres",
+        "depresión",
+        "depresion",
+        "terapia",
+        "psicólogo",
+        "psicologo"
+      ]
+    },
+    {
+      "id": "HEALTH_NUTRITION",
+      "label": "Nutricionista",
+      "aliases": [
+        "nutricionista",
+        "nutrición",
+        "nutricion"
+      ],
+      "keywords": [
+        "dieta",
+        "bajar de peso",
+        "alimentación",
+        "alimentacion",
+        "nutrición",
+        "nutricion",
+        "plan alimenticio"
+      ]
+    },
+    {
+      "id": "HEALTH_DENTIST",
+      "label": "Dentista",
+      "aliases": [
+        "dentista",
+        "odontólogo",
+        "odontologo"
+      ],
+      "keywords": [
+        "diente",
+        "muela",
+        "caries",
+        "dolor",
+        "odontólogo",
+        "odontologo",
+        "brackets",
+        "limpieza dental"
+      ]
+    },
+    {
+      "id": "HEALTH_VETERINARY",
+      "label": "Veterinario",
+      "aliases": [
+        "veterinario",
+        "veterinaria"
+      ],
+      "keywords": [
+        "perro",
+        "gato",
+        "mascota",
+        "vacuna",
+        "consulta",
+        "urgencia",
+        "esterilizar"
+      ]
+    },
+    {
+      "id": "LEGAL_LAWYER_GENERAL",
+      "label": "Abogado (general)",
+      "aliases": [
+        "abogado",
+        "abogada",
+        "legal"
+      ],
+      "keywords": [
+        "abogado",
+        "abogada",
+        "demanda",
+        "contrato",
+        "juicio",
+        "asesoría",
+        "asesoria"
+      ]
+    },
+    {
+      "id": "LEGAL_INHERITANCE",
+      "label": "Abogado por herencia",
+      "aliases": [
+        "abogado herencia",
+        "posesión efectiva",
+        "posesion efectiva"
+      ],
+      "keywords": [
+        "herencia",
+        "posesión",
+        "posesion",
+        "testamento",
+        "sucesión",
+        "sucesion",
+        "familia"
+      ]
+    },
+    {
+      "id": "LEGAL_LABOR",
+      "label": "Abogado laboral",
+      "aliases": [
+        "abogado laboral",
+        "laboral"
+      ],
+      "keywords": [
+        "despido",
+        "finiquito",
+        "cotizaciones",
+        "acoso",
+        "contrato de trabajo",
+        "sindicato"
+      ]
+    },
+    {
+      "id": "LEGAL_FAMILY",
+      "label": "Abogado de familia",
+      "aliases": [
+        "abogado familia",
+        "familia"
+      ],
+      "keywords": [
+        "divorcio",
+        "pensión",
+        "pension",
+        "visitas",
+        "cuidado personal",
+        "tuición",
+        "tuicion"
+      ]
+    },
+    {
+      "id": "LEGAL_TRAFFIC",
+      "label": "Abogado de tránsito",
+      "aliases": [
+        "abogado transito",
+        "tránsito",
+        "transito"
+      ],
+      "keywords": [
+        "choque",
+        "parte",
+        "infracción",
+        "infraccion",
+        "licencia",
+        "juzgado policia local"
+      ]
+    },
+    {
+      "id": "FIN_ACCOUNTING",
+      "label": "Contador",
+      "aliases": [
+        "contador",
+        "contabilidad"
+      ],
+      "keywords": [
+        "boleta",
+        "factura",
+        "sii",
+        "impuestos",
+        "declaración",
+        "declaracion",
+        "renta",
+        "contabilidad"
+      ]
+    },
+    {
+      "id": "EDU_TUTOR",
+      "label": "Tutor / Clases particulares",
+      "aliases": [
+        "profesor particular",
+        "tutor",
+        "clases"
+      ],
+      "keywords": [
+        "clases",
+        "profesor",
+        "tutor",
+        "matemáticas",
+        "matematicas",
+        "inglés",
+        "ingles",
+        "reforzamiento",
+        "psu",
+        "paes"
+      ]
+    },
+    {
+      "id": "EVENT_PHOTOGRAPHY",
+      "label": "Fotógrafo",
+      "aliases": [
+        "fotógrafo",
+        "fotografo",
+        "sesión",
+        "sesion"
+      ],
+      "keywords": [
+        "foto",
+        "fotos",
+        "fotógrafo",
+        "fotografo",
+        "matrimonio",
+        "evento",
+        "cumpleaños",
+        "cumpleanos"
+      ]
+    },
+    {
+      "id": "EVENT_CATERING",
+      "label": "Banquetería",
+      "aliases": [
+        "banquetería",
+        "banqueteria",
+        "catering"
+      ],
+      "keywords": [
+        "catering",
+        "banquete",
+        "coctel",
+        "cumpleaños",
+        "cumpleanos",
+        "matrimonio",
+        "evento"
+      ]
+    },
+    {
+      "id": "BEAUTY_HAIRDRESSER",
+      "label": "Peluquero / Barbería",
+      "aliases": [
+        "peluquero",
+        "barbero",
+        "barbería",
+        "barberia"
+      ],
+      "keywords": [
+        "corte",
+        "barba",
+        "tinte",
+        "mechas",
+        "peinado",
+        "peluquero",
+        "barbero"
+      ]
+    },
+    {
+      "id": "BEAUTY_MASSAGE",
+      "label": "Masajista",
+      "aliases": [
+        "masajista",
+        "masajes"
+      ],
+      "keywords": [
+        "masaje",
+        "masajes",
+        "relajación",
+        "relajacion",
+        "contractura",
+        "espalda",
+        "cuello"
+      ]
+    },
+    {
+      "id": "PET_GROOMING",
+      "label": "Peluquería canina",
+      "aliases": [
+        "peluquería canina",
+        "peluqueria canina",
+        "baño perro",
+        "bano perro"
+      ],
+      "keywords": [
+        "baño",
+        "bano",
+        "corte",
+        "perro",
+        "gato",
+        "mascota",
+        "peluquería"
+      ]
+    },
+    {
+      "id": "TECH_PHONE_REPAIR",
+      "label": "Reparación de celulares",
+      "aliases": [
+        "reparación celular",
+        "reparacion celular",
+        "técnico celular",
+        "tecnico celular"
+      ],
+      "keywords": [
+        "celular",
+        "pantalla rota",
+        "batería",
+        "bateria",
+        "no carga",
+        "iphone",
+        "samsung",
+        "android",
+        "cámara",
+        "camara"
+      ]
+    },
+    {
+      "id": "TECH_TV_AUDIO",
+      "label": "TV / Audio / Electrónica",
+      "aliases": [
+        "reparación tv",
+        "reparacion tv",
+        "técnico tv",
+        "tecnico tv"
+      ],
+      "keywords": [
+        "tv",
+        "televisor",
+        "pantalla",
+        "no enciende",
+        "audio",
+        "parlante",
+        "home theater",
+        "control remoto"
+      ]
+    },
+    {
+      "id": "SECURITY_CAMERAS",
+      "label": "Cámaras / Seguridad",
+      "aliases": [
+        "cámaras",
+        "camaras",
+        "cctv",
+        "alarmas",
+        "seguridad"
+      ],
+      "keywords": [
+        "cámara",
+        "camara",
+        "cctv",
+        "dvr",
+        "nvr",
+        "alarma",
+        "seguridad",
+        "instalar",
+        "configurar"
+      ]
+    },
+    {
+      "id": "TRANSLATION",
+      "label": "Traducción",
+      "aliases": [
+        "traductor",
+        "traducción",
+        "traduccion"
+      ],
+      "keywords": [
+        "traducir",
+        "traducción",
+        "traduccion",
+        "inglés",
+        "ingles",
+        "certificado",
+        "apostilla"
+      ]
+    },
+    {
+      "id": "DESIGN_GRAPHIC",
+      "label": "Diseñador gráfico",
+      "aliases": [
+        "diseñador",
+        "disenador",
+        "diseño gráfico",
+        "diseno grafico"
+      ],
+      "keywords": [
+        "logo",
+        "branding",
+        "diseño",
+        "diseno",
+        "afiche",
+        "volante",
+        "instagram",
+        "redes"
+      ]
+    },
+    {
+      "id": "DEV_SOFTWARE",
+      "label": "Desarrollo de software / Web",
+      "aliases": [
+        "desarrollador",
+        "programador",
+        "sitio web",
+        "web"
+      ],
+      "keywords": [
+        "web",
+        "página",
+        "pagina",
+        "app",
+        "aplicación",
+        "aplicacion",
+        "programar",
+        "desarrollo",
+        "software",
+        "tienda",
+        "ecommerce"
+      ]
+    }
+  ]
+}
