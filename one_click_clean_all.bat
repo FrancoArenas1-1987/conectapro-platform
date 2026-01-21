@@ -22,14 +22,6 @@ echo NO HAY FORMA DE DESHACER ESTO
 echo.
 pause
 
-
-docker compose down -v --remove-orphans
-
-docker system prune -f
-docker volume prune -f
-docker network prune -f
-
-
 echo.
 echo 🔍 Verificando Docker...
 docker info >nul 2>&1
@@ -47,6 +39,21 @@ docker compose down -v --remove-orphans
 echo.
 echo 🗑 Eliminando imagenes ConectaPro...
 FOR /F %%i IN ('docker images -q conectapro*') DO docker rmi -f %%i
+
+echo.
+echo 🧨 Limpiando sistema Docker...
+docker system prune -f
+docker volume prune -f
+docker network prune -f
+
+echo.
+echo ===============================================
+echo   ✅ LIMPIEZA TOTAL COMPLETADA
+echo ===============================================
+echo.
+echo Ahora puedes usar one_click_init.bat para reconstruir desde cero.
+echo.
+pause
 
 echo.
 echo 🌐 Eliminando network ConectaPro...

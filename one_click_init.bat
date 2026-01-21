@@ -41,6 +41,10 @@ echo 🚀 Levantando ConectaPro desde cero...
 docker compose up -d
 
 echo.
+echo 🌐 Exponiendo puerto 8000 con Ngrok...
+start ngrok http 8000
+
+echo.
 echo ============================================
 echo   ✅ INICIALIZACION COMPLETA FINALIZADA
 echo ============================================
@@ -49,5 +53,6 @@ echo Revisa:
 echo  - docker compose ps
 echo  - docker compose logs -f api
 echo  - docker compose logs -f worker
+echo  - Ngrok tunnel: http://localhost:4040
 echo.
 pause

@@ -12,7 +12,28 @@ from .llm_parser import try_llm_parse
 from .rules import top_intents
 from .types import NLUResult
 
-logger = setup_logging("nlu")
+logger = setup_logging("nlu_engine")
+
+# Comuna aliases for common abbreviations
+COMUNA_ALIASES = {
+    "conce": "concepcion",
+    "san pedro": "san pedro de la paz",
+    "los angeles": "los angeles",  # if needed
+    # Add more as needed
+}
+
+# Proximity map for comunas in Biobío region (normalized)
+PROXIMITY_MAP = {
+    "concepcion": ["talcahuano", "san pedro de la paz", "chiguayante", "hualpen", "coronel", "penco", "tome", "lota", "florida", "hualqui", "santa juana", "nacimento", "los angeles", "cabrero", "yumbel"],
+    "talcahuano": ["concepcion", "san pedro de la paz", "hualpen", "coronel", "penco", "tome", "lota", "chiguayante", "florida", "hualqui", "santa juana", "nacimento", "los angeles", "cabrero", "yumbel"],
+    "san pedro de la paz": ["concepcion", "talcahuano", "chiguayante", "hualpen", "coronel", "penco", "tome", "lota", "florida", "hualqui", "santa juana", "nacimento", "los angeles", "cabrero", "yumbel"],
+    "chiguayante": ["concepcion", "san pedro de la paz", "talcahuano", "hualqui", "florida", "santa juana", "hualpen", "coronel", "penco", "tome", "lota", "nacimento", "los angeles", "cabrero", "yumbel"],
+    "hualpen": ["talcahuano", "concepcion", "san pedro de la paz", "coronel", "penco", "tome", "lota", "chiguayante", "florida", "hualqui", "santa juana", "nacimento", "los angeles", "cabrero", "yumbel"],
+    "coronel": ["talcahuano", "hualpen", "lota", "penco", "tome", "concepcion", "san pedro de la paz", "chiguayante", "florida", "hualqui", "santa juana", "nacimento", "los angeles", "cabrero", "yumbel"],
+    "penco": ["talcahuano", "hualpen", "coronel", "tome", "lota", "concepcion", "san pedro de la paz", "chiguayante", "florida", "hualqui", "santa juana", "nacimento", "los angeles", "cabrero", "yumbel"],
+    "los angeles": ["nacimento", "cabrero", "yumbel", "santa barbara", "quilaco", "negrete", "nacimiento", "concepcion", "talcahuano", "san pedro de la paz", "chiguayante", "hualpen", "coronel", "penco", "tome"],
+    # Add more as needed
+}
 
 
 class NLUEngine:
@@ -107,14 +128,13 @@ class NLUEngine:
 
 
 def _norm(s: str) -> str:
-    return " ".join(
-        (s or "")
-        .strip()
-        .lower()
-        .replace("_", " ")
-        .replace("-", " ")
-        .split()
-    )
+    if not s:
+        return ""
+    s = s.strip().lower().replace("_", " ").replace("-", " ")
+    # Remove accents
+    trans = str.maketrans('áéíóúüñ', 'aeiouun')
+    s = s.translate(trans)
+    return " ".join(s.split())
 
 
 def build_service_intent_index(
@@ -160,26 +180,44 @@ def build_service_intent_index(
 
 def pick_best_service_for_intent(db: Session, intent_id: str, comuna: str, intent_to_services: dict[str, List[str]]) -> Optional[str]:
     candidates = intent_to_services.get(intent_id) or []
+    logger.info("🔍 pick_best_service_for_intent | intent_id=%s | comuna=%s | candidates=%s", intent_id, comuna, candidates)
     if not candidates:
+        logger.info("❌ No candidates for intent")
         return None
 
     normalized_comuna = _norm(comuna)
+    logger.info("🔄 Normalized comuna | original=%s | normalized=%s", comuna, normalized_comuna)
     if not normalized_comuna:
+        logger.info("❌ Normalized comuna is empty")
         return None
 
+    # Handle abbreviations
+    if normalized_comuna == "conce":
+        normalized_comuna = "concepcion"
+    normalized_comuna = COMUNA_ALIASES.get(normalized_comuna, normalized_comuna)
+    logger.info("📝 Final normalized comuna | %s", normalized_comuna)
+
     rows = (
-        db.query(Provider.id, Provider.service, Provider.rating_avg)
-        .outerjoin(ProviderCoverage, ProviderCoverage.provider_id == Provider.id)
+        db.query(Provider.id, Provider.service, Provider.rating_avg, ProviderCoverage.comuna)
+        .join(ProviderCoverage, ProviderCoverage.provider_id == Provider.id)
         .filter(Provider.active == True)
         .filter(Provider.service.in_(candidates))
-        .filter(
-            or_(
-                func.lower(ProviderCoverage.comuna) == normalized_comuna,
-                and_(ProviderCoverage.id.is_(None), func.lower(Provider.comuna) == normalized_comuna),
-            )
-        )
         .all()
     )
+    logger.info("📊 Query results | rows_count=%s", len(rows))
+    for row in rows:
+        logger.info("📋 Row | id=%s | service=%s | rating=%s | cov_comuna=%s", row[0], row[1], row[2], row[3])
+    
+    # Filter by normalized comuna
+    filtered_rows = []
+    for provider_id, svc, rat, cov_comuna in rows:
+        norm_cov = _norm(cov_comuna) if cov_comuna else ""
+        logger.info("🔍 Checking comuna | cov_comuna=%s | norm_cov=%s | match=%s", cov_comuna, norm_cov, norm_cov == normalized_comuna)
+        if cov_comuna and _norm(cov_comuna) == normalized_comuna:
+            filtered_rows.append((provider_id, svc, rat))
+    
+    logger.info("✅ Filtered rows | count=%s", len(filtered_rows))
+    rows = filtered_rows
     if not rows:
         return None
 
@@ -199,7 +237,46 @@ def pick_best_service_for_intent(db: Session, intent_id: str, comuna: str, inten
         n = a["n"]
         avg = (a["sum"] / n) if n else 0.0
         key = (n, avg)
-        if best_key is None or key > best_key:
+        if best_key is None:
             best_key = key
             best_svc = svc
-    return best_svc
+        elif key > best_key:
+            best_key = key
+            best_svc = svc
+def get_available_comunas_for_intent(db: Session, intent_id: str, intent_to_services: dict[str, List[str]], reference_comuna: Optional[str] = None) -> List[str]:
+    candidates = intent_to_services.get(intent_id) or []
+    logger.info("🌍 get_available_comunas_for_intent | intent_id=%s | candidates=%s | reference_comuna=%s", intent_id, candidates, reference_comuna)
+    if not candidates:
+        logger.info("❌ No candidates for comunas")
+        return []
+
+    rows_cov = (
+        db.query(func.distinct(ProviderCoverage.comuna))
+        .join(Provider, Provider.id == ProviderCoverage.provider_id)
+        .filter(Provider.active == True)
+        .filter(Provider.service.in_(candidates))
+        .all()
+    )
+    comunas_cov = [row[0] for row in rows_cov if row[0]]
+    logger.info("📍 Available comunas | %s", comunas_cov)
+
+    all_comunas = set(comunas_cov)
+    
+    if reference_comuna:
+        ref_norm = _norm(reference_comuna)
+        # Handle abbreviations
+        if ref_norm == "conce":
+            ref_norm = "concepcion"
+        ref_norm = COMUNA_ALIASES.get(ref_norm, ref_norm)
+        proximity_list = PROXIMITY_MAP.get(ref_norm, [])
+        # Sort by proximity: first those in proximity_list, then others
+        sorted_comunas = []
+        for prox in proximity_list:
+            if prox in all_comunas:
+                sorted_comunas.append(prox)
+        for com in sorted(all_comunas):
+            if com not in sorted_comunas:
+                sorted_comunas.append(com)
+        return sorted_comunas
+    else:
+        return sorted(list(all_comunas))
