@@ -57,15 +57,52 @@ class NLUEngine:
 
     async def parse_hybrid(self, text: str) -> NLUResult:
         llm = await try_llm_parse(text, self.intents)
-        if llm and llm.intent_id in self.allowlist():
-            llm.method = "llm"
-            return llm
+        top = top_intents(text, self.intents, k=3)
+        rules_scores = {intent_id: score for intent_id, score, _ in top}
 
-        r = self.parse(text)
-        r.method = "hybrid" if llm is not None else "rules"
-        if llm is not None:
-            r.debug["llm_fallback_to_rules"] = True
-        return r
+        llm_intent = None
+        llm_score = 0.0
+        if llm and llm.intent_id in self.allowlist():
+            llm_intent = llm.intent_id
+            llm_score = float(llm.confidence or 0.0)
+
+        combined: dict[str, float] = {}
+        for intent_id, score, _ in top:
+            combined[intent_id] = score
+
+        if llm_intent:
+            rule_score = rules_scores.get(llm_intent, 0.0)
+            combined[llm_intent] = (0.6 * llm_score) + (0.4 * rule_score)
+
+        if not combined:
+            r = NLUResult(intent_id=None, confidence=0.0, method="rules", debug={"top": []})
+            r.method = "hybrid" if llm is not None else "rules"
+            return r
+
+        ranked = sorted(combined.items(), key=lambda x: x[1], reverse=True)
+        best_id, best_score = ranked[0]
+        second = ranked[1] if len(ranked) > 1 else None
+
+        res = NLUResult(intent_id=best_id, confidence=float(best_score), method="hybrid")
+        res.debug = {
+            "rules_top": [{"id": i, "score": float(s)} for i, s, _ in top],
+            "llm_intent": llm_intent,
+            "llm_confidence": llm_score,
+        }
+
+        if second and (best_score < 0.55 or (best_score - second[1]) < 0.08):
+            a = self.by_id.get(best_id)
+            b = self.by_id.get(second[0])
+            if a and b:
+                res.need_clarification = True
+                res.clarifying_options = [a.label, b.label]
+                res.clarifying_question = (
+                    "Para ayudarte mejor, ¿cuál de estas opciones se parece más a lo que necesitas?\n"
+                    f"1) {a.label}\n"
+                    f"2) {b.label}\n"
+                    "Responde 1 o 2."
+                )
+        return res
 
 
 def _norm(s: str) -> str:
