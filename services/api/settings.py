@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     allow_services: str = "Electricidad,Gasfiteria,Cerrajeria"
     allow_urgency: str = "hoy,1_2_dias,semana"
 
+    # Matching
+    top_providers_limit: int = 3
+
     def allow_services_list(self) -> list[str]:
         return [x.strip() for x in self.allow_services.split(",") if x.strip()]
 
