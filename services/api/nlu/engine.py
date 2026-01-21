@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from services.common.logging_config import setup_logging
@@ -155,10 +156,14 @@ def pick_best_service_for_intent(db: Session, intent_id: str, comuna: str, inten
     if not candidates:
         return None
 
+    normalized_comuna = _norm(comuna)
+    if not normalized_comuna:
+        return None
+
     rows = (
         db.query(Provider.service, Provider.rating_avg)
         .filter(Provider.active == True)
-        .filter(Provider.comuna == comuna)
+        .filter(func.lower(Provider.comuna) == normalized_comuna)
         .filter(Provider.service.in_(candidates))
         .all()
     )
