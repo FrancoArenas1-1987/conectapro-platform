@@ -106,6 +106,10 @@ def _match_service_from_text(text: str, services: list[str]) -> str | None:
 
 def _normalize_comuna_key(text: str) -> str:
     text_norm = _normalize_text(text)
+    for prefix in ("en la ", "en el ", "en "):
+        if text_norm.startswith(prefix):
+            text_norm = text_norm[len(prefix):].strip()
+            break
     if text_norm == "conce":
         text_norm = "concepcion"
     return COMUNA_ALIASES.get(text_norm, text_norm)
