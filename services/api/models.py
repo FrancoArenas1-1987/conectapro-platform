@@ -31,6 +31,27 @@ class Provider(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    coverage_areas: Mapped[list["ProviderCoverage"]] = relationship(
+        "ProviderCoverage",
+        back_populates="provider",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class ProviderCoverage(Base):
+    __tablename__ = "provider_coverage"
+    __table_args__ = (
+        UniqueConstraint("provider_id", "comuna", name="uq_provider_coverage_provider_comuna"),
+        Index("ix_provider_coverage_comuna", "comuna"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider_id: Mapped[int] = mapped_column(ForeignKey("providers.id"), nullable=False, index=True)
+    comuna: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    provider: Mapped[Provider] = relationship("Provider", back_populates="coverage_areas")
+
 
 class Lead(Base):
     __tablename__ = "leads"

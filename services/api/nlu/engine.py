@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from typing import List, Optional, Tuple
-
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from services.common.logging_config import setup_logging
-from ..models import Provider
+from ..models import Provider, ProviderCoverage
 from .catalog import IntentDef, load_intents, intents_by_id
 from .llm_parser import try_llm_parse
 from .rules import top_intents
@@ -168,17 +167,27 @@ def pick_best_service_for_intent(db: Session, intent_id: str, comuna: str, inten
         return None
 
     rows = (
-        db.query(Provider.service, Provider.rating_avg)
+        db.query(Provider.id, Provider.service, Provider.rating_avg)
+        .outerjoin(ProviderCoverage, ProviderCoverage.provider_id == Provider.id)
         .filter(Provider.active == True)
-        .filter(func.lower(Provider.comuna) == normalized_comuna)
         .filter(Provider.service.in_(candidates))
+        .filter(
+            or_(
+                func.lower(ProviderCoverage.comuna) == normalized_comuna,
+                and_(ProviderCoverage.id.is_(None), func.lower(Provider.comuna) == normalized_comuna),
+            )
+        )
         .all()
     )
     if not rows:
         return None
 
     agg: dict[str, dict[str, float]] = {}
-    for svc, rat in rows:
+    seen_provider_ids: set[int] = set()
+    for provider_id, svc, rat in rows:
+        if provider_id in seen_provider_ids:
+            continue
+        seen_provider_ids.add(provider_id)
         a = agg.setdefault(svc, {"n": 0.0, "sum": 0.0})
         a["n"] += 1.0
         a["sum"] += float(rat or 0.0)
