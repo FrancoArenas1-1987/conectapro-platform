@@ -35,15 +35,18 @@ def find_top_providers(db: Session, service: str, comuna: str, limit: int = 3) -
     service_n = _norm(service)
     comuna_n = _norm(comuna)
 
-    providers = (
+    query = (
         db.query(Provider)
         .filter(Provider.active == True)
         .filter(Provider.service == service)
         .filter(Provider.comuna == comuna)
         .order_by(Provider.rating_avg.desc(), Provider.rating_count.desc(), Provider.id.asc())
-        .limit(limit * 3)  # traemos extra para poder filtrar bloqueados
-        .all()
     )
+
+    if limit > 0:
+        query = query.limit(limit * 3)  # traemos extra para poder filtrar bloqueados
+
+    providers = query.all()
 
     out: list[Provider] = []
     for p in providers:
@@ -55,6 +58,6 @@ def find_top_providers(db: Session, service: str, comuna: str, limit: int = 3) -
         if comuna_n and _norm(p.comuna) != comuna_n:
             continue
         out.append(p)
-        if len(out) >= limit:
+        if limit > 0 and len(out) >= limit:
             break
     return out

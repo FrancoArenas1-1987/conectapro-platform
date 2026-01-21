@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request
 
 from services.common.logging_config import setup_logging
 from services.api.db import SessionLocal
+from services.api.models import InboundMessage
+from services.api.settings import settings
 from services.api.leads_flow import handle_user_incoming
 
 router = APIRouter()
@@ -88,6 +90,18 @@ async def whatsapp_webhook(request: Request):
     db = None
     try:
         db = SessionLocal()
+        if msg_id:
+            exists = (
+                db.query(InboundMessage)
+                .filter(InboundMessage.customer_wa_id == wa_id)
+                .filter(InboundMessage.message_id == msg_id)
+                .first()
+            )
+            if exists:
+                logger.info("♻️ Duplicate message ignored | wa_id=%s | msg_id=%s", wa_id, msg_id)
+                return {"ok": True}
+            db.add(InboundMessage(customer_wa_id=wa_id, message_id=msg_id, text=text or ""))
+            db.commit()
         await handle_user_incoming(db=db, wa_id=wa_id, text=text, raw_message=message)
         logger.info("✅ Processed message | wa_id=%s | msg_id=%s", wa_id, msg_id)
     except Exception as e:
@@ -106,3 +120,15 @@ async def whatsapp_webhook(request: Request):
             pass
 
     return {"ok": True}
+
+
+@router.get("/webhooks/whatsapp")
+async def whatsapp_verify(request: Request):
+    params = dict(request.query_params)
+    mode = params.get("hub.mode")
+    token = params.get("hub.verify_token")
+    challenge = params.get("hub.challenge")
+
+    if mode == "subscribe" and token == settings.whatsapp_verify_token and challenge:
+        return int(challenge)
+    return {"ok": False}
