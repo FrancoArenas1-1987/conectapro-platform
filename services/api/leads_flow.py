@@ -34,7 +34,7 @@ def _normalize_text(text: str) -> str:
 COMUNA_ALIASES = {
     "conce": "concepcion",
     "san pedro": "san pedro de la paz",
-    "los angeles": "los ángeles",  # if needed
+    "los angeles": "los angeles",
     # Add more as needed
 }
 
@@ -102,6 +102,26 @@ def _match_service_from_text(text: str, services: list[str]) -> str | None:
         if svc and svc.lower() in t:
             return svc
     return None
+
+
+def _normalize_comuna_key(text: str) -> str:
+    text_norm = _normalize_text(text)
+    if text_norm == "conce":
+        text_norm = "concepcion"
+    return COMUNA_ALIASES.get(text_norm, text_norm)
+
+
+def _resolve_comuna(text: str, comunas_map: dict[str, str]) -> tuple[str, str]:
+    key = _normalize_comuna_key(text)
+    canonical = comunas_map.get(key, text.strip())
+    return key, canonical
+
+
+def _sync_state_after_options(state: ConversationState, lead: Lead) -> None:
+    if lead.status == "WAIT_SERVICE":
+        state.step = "WAIT_SERVICE"
+    elif lead.status == "WAIT_CHOICE":
+        state.step = "WAIT_CHOICE"
 
 
 def _ensure_customer(db: Session, wa_id: str) -> Customer:
@@ -197,6 +217,15 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
     logger.info("📚 Services loaded | count=%s", len(services) if services else 0)
 
     _service_to_intent, intent_to_services = build_service_intent_index(services, NLU.intents)
+    known_comunas_rows = db.query(func.distinct(Provider.comuna)).filter(Provider.comuna.isnot(None)).all()
+    known_comunas_rows.extend(db.query(func.distinct(ProviderCoverage.comuna)).filter(ProviderCoverage.comuna.isnot(None)).all())
+    comunas_map: dict[str, str] = {}
+    for row in known_comunas_rows:
+        raw = row[0]
+        if not raw:
+            continue
+        key = _normalize_text(raw)
+        comunas_map.setdefault(key, raw)
 
     # Handle greeting in START
     if _is_greeting(text) and state.step == "START":
@@ -228,23 +257,33 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         if nlu.intent_id:
             comuna_entity = (nlu.entities.comuna if nlu.entities else None) if hasattr(nlu, "entities") else None
             if comuna_entity:
-                logger.info("✅ Intent+comuna detected -> resolve service | intent_id=%s | comuna=%s", nlu.intent_id, comuna_entity)
-                best_service = pick_best_service_for_intent(db, nlu.intent_id, comuna_entity, intent_to_services)
+
+                comuna_key, comuna_canonical = _resolve_comuna(comuna_entity, comunas_map)
+                logger.info(
+                    "✅ Intent+comuna detected -> resolve service | intent_id=%s | comuna=%s",
+                    nlu.intent_id,
+                    comuna_canonical,
+                )
+                best_service = pick_best_service_for_intent(db, nlu.intent_id, comuna_key, intent_to_services)
                 if best_service:
                     lead.service = best_service
-                    lead.comuna = comuna_entity
+                    lead.comuna = comuna_canonical
+
                     lead.status = "WAIT_CHOICE"
                     state.step = "WAIT_CHOICE"
                     db.commit()
                     from services.api.options import _send_options
                     await _send_options(db, wa_id, lead)
+                    _sync_state_after_options(state, lead)
+                    db.commit()
                     return
 
-                available_comunas = get_available_comunas_for_intent(db, nlu.intent_id, intent_to_services, comuna_entity)
+                available_comunas = get_available_comunas_for_intent(db, nlu.intent_id, intent_to_services, comuna_canonical)
                 if available_comunas:
                     comunas_str = ", ".join(available_comunas[:5])
                     message = (
-                        f"No encontré profesionales disponibles para esa necesidad en {comuna_entity}.\n"
+                        f"No encontré profesionales disponibles para esa necesidad en {comuna_canonical}.\n"
+
                         f"Tenemos disponibles en: {comunas_str}.\n"
                         "Prueba una de estas comunas o describe tu necesidad de otra forma."
                     )
@@ -254,6 +293,8 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                         "Describe el problema con más detalle o prueba otra comuna."
                     )
                 lead.service = None
+                lead.comuna = None
+
                 lead.status = "WAIT_SERVICE"
                 state.step = "WAIT_SERVICE"
                 db.commit()
@@ -333,19 +374,12 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
     # STEP: WAIT_SERVICE
     if state.step == "WAIT_SERVICE":
         # Check if text is a known comuna and we have previous intent
-        known_comunas_rows = db.query(func.distinct(Provider.comuna)).filter(Provider.comuna.isnot(None)).all()
-        known_comunas_rows.extend(db.query(func.distinct(ProviderCoverage.comuna)).filter(ProviderCoverage.comuna.isnot(None)).all())
-        comunas_set = set(_normalize_text(row[0]) for row in known_comunas_rows if row[0])
+        comunas_set = set(comunas_map.keys())
         logger.info("📋 WAIT_SERVICE | text=%s | comunas_set=%s", text, comunas_set)
-        
-        text_norm = _normalize_text(text)
-        logger.info("🔄 Text normalized | original=%s | normalized=%s", text, text_norm)
-        # Handle specific known abbreviations
-        if text_norm == "conce":
-            text_norm = "concepcion"
-        text_norm = COMUNA_ALIASES.get(text_norm, text_norm)
-        logger.info("📝 Final text_norm | %s", text_norm)
-        
+
+        text_norm, comuna_canonical = _resolve_comuna(text, comunas_map)
+        logger.info("📝 Normalized comuna | original=%s | normalized=%s", text, text_norm)
+
         prev_intent = (state.temp_data or {}).get("previous_intent")
         logger.info("🎯 Prev intent | %s", prev_intent)
         
@@ -356,29 +390,37 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
             if best_service:
                 logger.info("✅ Found service for comuna | best_service=%s", best_service)
                 lead.service = best_service
-                lead.comuna = text.strip()
+                lead.comuna = comuna_canonical
                 lead.status = "WAIT_CHOICE"
                 state.step = "WAIT_CHOICE"
                 state.temp_data = {}  # Clear
                 db.commit()
                 from services.api.options import _send_options
                 await _send_options(db, wa_id, lead)
+                _sync_state_after_options(state, lead)
+                db.commit()
                 return
             else:
                 # No service in this comuna either
-                available_comunas = get_available_comunas_for_intent(db, prev_intent, intent_to_services, text.strip())
+                available_comunas = get_available_comunas_for_intent(db, prev_intent, intent_to_services, comuna_canonical)
                 if available_comunas:
                     comunas_str = ", ".join(available_comunas[:5])
                     message = (
-                        f"No encontré profesionales para esa necesidad en {text.strip()} tampoco.\n"
+                        f"No encontré profesionales para esa necesidad en {comuna_canonical} tampoco.\n"
                         f"Tenemos disponibles en: {comunas_str}.\n"
                         "Prueba una de estas comunas o describe tu necesidad de otra forma."
                     )
                 else:
                     message = (
-                        f"No encontré profesionales para esa necesidad en {text.strip()} tampoco.\n"
+                        f"No encontré profesionales para esa necesidad en {comuna_canonical} tampoco.\n"
                         "Prueba otra comuna o describe tu necesidad de otra forma."
                     )
+                lead.service = None
+                lead.comuna = None
+                lead.status = "WAIT_SERVICE"
+                state.step = "WAIT_SERVICE"
+                state.temp_data = {}
+                db.commit()
                 await send_text(wa_id, message)
                 return
         
@@ -426,20 +468,21 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
     # STEP: WAIT_COMUNA
     if state.step == "WAIT_COMUNA":
         comuna = (text or "").strip()
-        logger.info("📍 Comuna received | comuna=%s", comuna)
+        comuna_key, comuna_canonical = _resolve_comuna(comuna, comunas_map)
+        logger.info("📍 Comuna received | comuna=%s | canonical=%s", comuna, comuna_canonical)
 
         if len(comuna) < 3:
             await send_text(wa_id, "Dime tu comuna (ej: Talcahuano, Concepción, San Pedro).")
             return
 
-        lead.comuna = comuna
+        lead.comuna = comuna_canonical
 
         if _is_intent_marker(lead.service):
             intent_id = _get_intent_id(lead.service)
             logger.info("🔁 Resolving intent -> service | intent_id=%s | comuna=%s", intent_id, comuna)
 
             if intent_id:
-                best_service = pick_best_service_for_intent(db, intent_id, comuna, intent_to_services)
+                best_service = pick_best_service_for_intent(db, intent_id, comuna_key, intent_to_services)
                 logger.info("🎯 pick_best_service_for_intent result | best_service=%s", best_service)
 
                 if not best_service:
@@ -448,11 +491,11 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                     state.temp_data["previous_intent"] = intent_id
                     
                     # Get available comunas for this service
-                    available_comunas = get_available_comunas_for_intent(db, intent_id, intent_to_services, comuna)
+                    available_comunas = get_available_comunas_for_intent(db, intent_id, intent_to_services, comuna_canonical)
                     if available_comunas:
                         comunas_str = ", ".join(available_comunas[:5])  # Limit to 5
                         message = (
-                            f"No encontré profesionales disponibles para esa necesidad en {comuna}.\n"
+                            f"No encontré profesionales disponibles para esa necesidad en {comuna_canonical}.\n"
                             f"Tenemos disponibles en: {comunas_str}.\n"
                             "Prueba una de estas comunas o describe tu necesidad de otra forma."
                         )
@@ -463,6 +506,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                         )
                     
                     lead.service = None
+                    lead.comuna = None
                     lead.status = "WAIT_SERVICE"
                     state.step = "WAIT_SERVICE"
                     db.commit()
@@ -479,6 +523,8 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         logger.info("📤 Sending options | lead_id=%s | service=%s | comuna=%s", lead.id, lead.service, lead.comuna)
         from services.api.options import _send_options
         await _send_options(db, wa_id, lead)
+        _sync_state_after_options(state, lead)
+        db.commit()
         return
 
     # STEP: WAIT_CHOICE
