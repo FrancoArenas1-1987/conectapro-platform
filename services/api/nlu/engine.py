@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional, Tuple
+
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
