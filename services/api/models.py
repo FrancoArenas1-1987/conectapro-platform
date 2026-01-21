@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Float, func, UniqueConstraint, Index
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Float, func, UniqueConstraint, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -83,6 +83,7 @@ class ConversationState(Base):
 
     step: Mapped[str] = mapped_column(String(64), default="START", index=True)
     lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("leads.id"), nullable=True)
+    temp_data: Mapped[dict] = mapped_column(JSON, default=dict)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False

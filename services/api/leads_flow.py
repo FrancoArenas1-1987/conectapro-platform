@@ -1,8 +1,18 @@
 from sqlalchemy.orm import Session
 
 from services.common.logging_config import setup_logging
+from datetime import datetime
+
 from services.api.matching import list_available_services
-from services.api.models import Lead, ConversationState
+from services.api.models import (
+    ConversationState,
+    Customer,
+    Lead,
+    LeadOffer,
+    Provider,
+    ProviderState,
+    Review,
+)
 from services.api.whatsapp_cloud import send_text
 
 from services.api.nlu.engine import NLUEngine, build_service_intent_index, pick_best_service_for_intent
@@ -44,8 +54,90 @@ def _pick_1_or_2(text: str):
     return t if t in ("1", "2") else None
 
 
+def _parse_yes_no(text: str):
+    t = (text or "").strip().lower()
+    if t in {"1", "si", "sí", "s"}:
+        return True
+    if t in {"2", "no", "n"}:
+        return False
+    return None
+
+
+def _parse_rating(text: str) -> int | None:
+    t = (text or "").strip().lower()
+    if not t:
+        return None
+    first = t.split()[0]
+    try:
+        val = int(first)
+    except ValueError:
+        return None
+    if 0 <= val <= 5:
+        return val
+    return None
+
+
+def _match_service_from_text(text: str, services: list[str]) -> str | None:
+    t = (text or "").strip().lower()
+    if not t:
+        return None
+    for svc in services:
+        if svc and svc.lower() in t:
+            return svc
+    return None
+
+
+def _ensure_customer(db: Session, wa_id: str) -> Customer:
+    cust = db.query(Customer).filter(Customer.wa_id == wa_id).first()
+    if not cust:
+        cust = Customer(wa_id=wa_id)
+        db.add(cust)
+        db.commit()
+    return cust
+
+
+def _clear_customer_pending(db: Session, wa_id: str, lead_id: int):
+    cust = db.query(Customer).filter(Customer.wa_id == wa_id).first()
+    if cust and cust.pending_lead_id == lead_id:
+        cust.pending_lead_id = None
+        cust.blocked_until = None
+        db.commit()
+
+
+async def _handle_provider_followup(db: Session, provider: Provider, text: str) -> bool:
+    st = db.query(ProviderState).filter(ProviderState.provider_id == provider.id).first()
+    if not st or not st.pending_lead_id or not st.pending_question:
+        return False
+
+    lead = db.query(Lead).filter(Lead.id == st.pending_lead_id).first()
+    if not lead:
+        return False
+
+    ans = _parse_yes_no(text)
+    if ans is None:
+        await send_text(provider.whatsapp_e164, "Responde 1=SI o 2=NO para continuar.")
+        return True
+
+    if st.pending_question == "CONTACT":
+        lead.provider_contact_confirmed = ans
+    elif st.pending_question == "SERVICE":
+        lead.provider_service_confirmed = ans
+
+    db.commit()
+    await send_text(provider.whatsapp_e164, "Gracias, respuesta registrada.")
+    return True
+
+
 async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=None):
     logger.info("➡️ Enter | wa_id=%s | text=%s", wa_id, text)
+
+    provider = db.query(Provider).filter(Provider.whatsapp_e164 == wa_id).first()
+    if provider:
+        handled = await _handle_provider_followup(db, provider, text)
+        if handled:
+            return
+        await send_text(provider.whatsapp_e164, "No tengo seguimientos pendientes para ti.")
+        return
 
     # Load / create conversation state
     state = db.query(ConversationState).filter(ConversationState.customer_wa_id == wa_id).first()
@@ -260,6 +352,153 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         logger.info("📤 Sending options | lead_id=%s | service=%s | comuna=%s", lead.id, lead.service, lead.comuna)
         from services.api.options import _send_options
         await _send_options(db, wa_id, lead)
+        return
+
+    # STEP: WAIT_CHOICE
+    if state.step == "WAIT_CHOICE":
+        offers = (
+            db.query(LeadOffer)
+            .filter(LeadOffer.lead_id == lead.id)
+            .order_by(LeadOffer.rank.asc())
+            .all()
+        )
+        if not offers:
+            await send_text(wa_id, "No tengo opciones disponibles. Describe nuevamente tu necesidad.")
+            state.step = "WAIT_SERVICE"
+            lead.status = "WAIT_SERVICE"
+            db.commit()
+            return
+
+        choice_raw = (text or "").strip()
+        if not choice_raw.isdigit():
+            await send_text(wa_id, "Responde con el número del profesional que prefieres.")
+            return
+
+        choice = int(choice_raw)
+        if choice < 1 or choice > len(offers):
+            await send_text(wa_id, "Opción inválida. Responde con el número indicado.")
+            return
+
+        chosen = offers[choice - 1]
+        lead.provider_id = chosen.provider_id
+        lead.status = "WAIT_CONSENT"
+        state.step = "WAIT_CONSENT"
+        db.commit()
+        await send_text(
+            wa_id,
+            "¿Autorizas que compartamos tu número con este profesional para que te contacte?\n"
+            "Responde:\n1) SI\n2) NO",
+        )
+        return
+
+    # STEP: WAIT_CONSENT
+    if state.step == "WAIT_CONSENT":
+        consent = _parse_yes_no(text)
+        if consent is None:
+            await send_text(wa_id, "Responde 1=SI o 2=NO para continuar.")
+            return
+
+        if not consent:
+            lead.status = "WAIT_CHOICE"
+            state.step = "WAIT_CHOICE"
+            db.commit()
+            from services.api.options import _send_options
+            await _send_options(db, wa_id, lead)
+            return
+
+        provider = db.query(Provider).filter(Provider.id == lead.provider_id).first()
+        if not provider:
+            await send_text(wa_id, "No pude encontrar al profesional seleccionado. Elige otra opción.")
+            lead.status = "WAIT_CHOICE"
+            state.step = "WAIT_CHOICE"
+            db.commit()
+            from services.api.options import _send_options
+            await _send_options(db, wa_id, lead)
+            return
+
+        _ensure_customer(db, wa_id)
+
+        lead.status = "CONNECTED"
+        lead.connected_at = datetime.utcnow()
+        state.step = "CONNECTED"
+        db.commit()
+
+        await send_text(
+            wa_id,
+            "¡Listo! Compartimos tu contacto con el profesional.\n"
+            f"Su WhatsApp: {provider.whatsapp_e164 or 'no disponible'}",
+        )
+        if provider.whatsapp_e164:
+            await send_text(
+                provider.whatsapp_e164,
+                "Nuevo cliente ConectaPro 👋\n"
+                f"Nombre: {lead.customer_name or 'Cliente'}\n"
+                f"Problema: {lead.problem_type or 'No especificado'}\n"
+                f"Comuna: {lead.comuna or '-'}\n"
+                f"Contacto: {lead.customer_wa_id}",
+            )
+        return
+
+    # FOLLOWUP: CONTACT_CONFIRM_PENDING
+    if lead.status == "CONTACT_CONFIRM_PENDING":
+        ans = _parse_yes_no(text)
+        if ans is None:
+            await send_text(wa_id, "Responde 1=SI o 2=NO para continuar.")
+            return
+        lead.user_contact_confirmed = ans
+        db.commit()
+        await send_text(wa_id, "Gracias, respuesta registrada.")
+        return
+
+    # FOLLOWUP: SERVICE_CONFIRM_PENDING
+    if lead.status == "SERVICE_CONFIRM_PENDING":
+        ans = _parse_yes_no(text)
+        if ans is None:
+            await send_text(wa_id, "Responde 1=SI o 2=NO para continuar.")
+            return
+        lead.user_service_confirmed = ans
+        db.commit()
+        await send_text(wa_id, "Gracias, respuesta registrada.")
+        return
+
+    # FOLLOWUP: RATING_PENDING
+    if lead.status == "RATING_PENDING":
+        rating = _parse_rating(text)
+        if rating is None:
+            await send_text(wa_id, "Responde con un número 0 a 5 (ej: 5 excelente).")
+            return
+        if rating == 0:
+            lead.status = "CLOSED"
+            db.commit()
+            _clear_customer_pending(db, wa_id, lead.id)
+            await send_text(wa_id, "Gracias, tu caso fue cerrado.")
+            return
+
+        provider = db.query(Provider).filter(Provider.id == lead.provider_id).first()
+        if provider:
+            provider.rating_avg = (
+                (provider.rating_avg * provider.rating_count + rating) / (provider.rating_count + 1)
+            )
+            provider.rating_count += 1
+            db.commit()
+
+        lead.rating_stars = rating
+        lead.status = "CLOSED"
+        db.commit()
+
+        if provider:
+            review = Review(
+                lead_id=lead.id,
+                provider_id=provider.id,
+                customer_wa_id=lead.customer_wa_id,
+                stars=rating,
+                comment=(text or "").strip(),
+            )
+            db.add(review)
+            db.commit()
+
+        _clear_customer_pending(db, wa_id, lead.id)
+        await send_text(wa_id, "¡Gracias por tu evaluación! Caso cerrado.")
         return
 
     # Unknown step safety
