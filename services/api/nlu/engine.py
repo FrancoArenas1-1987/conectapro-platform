@@ -243,6 +243,9 @@ def pick_best_service_for_intent(db: Session, intent_id: str, comuna: str, inten
         elif key > best_key:
             best_key = key
             best_svc = svc
+    return best_svc
+
+
 def get_available_comunas_for_intent(db: Session, intent_id: str, intent_to_services: dict[str, List[str]], reference_comuna: Optional[str] = None) -> List[str]:
     candidates = intent_to_services.get(intent_id) or []
     logger.info("🌍 get_available_comunas_for_intent | intent_id=%s | candidates=%s | reference_comuna=%s", intent_id, candidates, reference_comuna)
@@ -257,10 +260,18 @@ def get_available_comunas_for_intent(db: Session, intent_id: str, intent_to_serv
         .filter(Provider.service.in_(candidates))
         .all()
     )
+    rows_direct = (
+        db.query(func.distinct(Provider.comuna))
+        .outerjoin(ProviderCoverage, ProviderCoverage.provider_id == Provider.id)
+        .filter(Provider.active == True)
+        .filter(Provider.service.in_(candidates))
+        .all()
+    )
     comunas_cov = [row[0] for row in rows_cov if row[0]]
-    logger.info("📍 Available comunas | %s", comunas_cov)
+    comunas_direct = [row[0] for row in rows_direct if row[0]]
+    logger.info("📍 Available comunas | coverage=%s | direct=%s", comunas_cov, comunas_direct)
 
-    all_comunas = set(comunas_cov)
+    all_comunas = set(comunas_cov) | set(comunas_direct)
     
     if reference_comuna:
         ref_norm = _norm(reference_comuna)
