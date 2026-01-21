@@ -107,7 +107,14 @@ class NLUEngine:
 
 
 def _norm(s: str) -> str:
-    return (s or "").strip().lower()
+    return " ".join(
+        (s or "")
+        .strip()
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+        .split()
+    )
 
 
 def build_service_intent_index(
