@@ -176,6 +176,9 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         db.add(lead)
         db.commit()
         logger.info("🆕 Created Lead | wa_id=%s | lead_id=%s", wa_id, lead.id)
+    if not state.lead_id:
+        state.lead_id = lead.id
+        db.commit()
 
     logger.info(
         "🧠 State snapshot | wa_id=%s | step=%s | lead_id=%s | status=%s | service=%s | comuna=%s",
@@ -193,73 +196,12 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
     services = list_available_services(db)
     logger.info("📚 Services loaded | count=%s", len(services) if services else 0)
 
-    # Get available comunas
-    comunas_rows = db.query(func.distinct(ProviderCoverage.comuna)).all()
-    comunas = [row[0] for row in comunas_rows if row[0]]
-
-    # Check for option selection (1, 2, etc.)
-    choice = _pick_1_or_2(text)
-    if choice:
-        offers = db.query(LeadOffer).filter(LeadOffer.lead_id == lead.id).all()
-        if offers:
-            selected_offer = None
-            for offer in offers:
-                if offer.option_number == int(choice):
-                    selected_offer = offer
-                    break
-            if selected_offer:
-                # Handle selection
-                provider = db.query(Provider).filter(Provider.id == selected_offer.provider_id).first()
-                if provider:
-                    lead.provider_id = provider.id
-                    lead.status = "ASSIGNED"
-                    db.commit()
-                    await send_text(wa_id, f"¡Perfecto! Has seleccionado a {provider.name}.\nTe pondré en contacto pronto.")
-                    # TODO: Notify provider
-                    return
-            else:
-                await send_text(wa_id, "Opción no válida. Responde con 1 o 2.")
-                return
-        else:
-            # No offers, treat as normal message
-            pass
+    _service_to_intent, intent_to_services = build_service_intent_index(services, NLU.intents)
 
     # Handle greeting in START
     if _is_greeting(text) and state.step == "START":
         await send_text(wa_id, INTRO)
         return
-
-    # Use LLM Orchestrator for response
-    from .llm_orchestrator import get_orchestrator
-    orchestrator = get_orchestrator()
-    context = {
-        "step": state.step,
-        "history": [],  # Can add message history
-        "lead_id": lead.id,
-        "wa_id": wa_id,
-        "current_service": lead.service,
-        "current_comuna": lead.comuna
-    }
-    result = orchestrator.orchestrate_response(text, context, db, services, comunas)
-
-    # Execute actions
-    for action in result["actions"]:
-        if action["type"] == "send_options":
-            from .options import _send_options
-            await _send_options(db, wa_id, lead)
-        # Add more actions as needed
-
-    # Send response
-    if result["response"]:
-        await send_text(wa_id, result["response"])
-
-    # Update state
-    if result["next_step"] != "CONTINUE":
-        state.step = result["next_step"]
-        db.commit()
-
-    # Orchestrator handles everything
-    return
     if state.step == "START":
         if _is_greeting(text):
             logger.info("👋 Greeting detected -> sending INTRO")
@@ -267,6 +209,12 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
             return
 
         lead.problem_type = (text or "").strip()[:160]
+
+        nlu = await NLU.parse_hybrid(text)
+        logger.info(
+            "🧩 NLU result | intent_id=%s | need_clarification=%s",
+            getattr(nlu, "intent_id", None), getattr(nlu, "need_clarification", None)
+        )
 
         if nlu.need_clarification and nlu.clarifying_question:
             logger.info("❓ Need clarification -> WAIT_INTENT_CLARIFICATION")
@@ -278,6 +226,40 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
             return
 
         if nlu.intent_id:
+            comuna_entity = (nlu.entities.comuna if nlu.entities else None) if hasattr(nlu, "entities") else None
+            if comuna_entity:
+                logger.info("✅ Intent+comuna detected -> resolve service | intent_id=%s | comuna=%s", nlu.intent_id, comuna_entity)
+                best_service = pick_best_service_for_intent(db, nlu.intent_id, comuna_entity, intent_to_services)
+                if best_service:
+                    lead.service = best_service
+                    lead.comuna = comuna_entity
+                    lead.status = "WAIT_CHOICE"
+                    state.step = "WAIT_CHOICE"
+                    db.commit()
+                    from services.api.options import _send_options
+                    await _send_options(db, wa_id, lead)
+                    return
+
+                available_comunas = get_available_comunas_for_intent(db, nlu.intent_id, intent_to_services, comuna_entity)
+                if available_comunas:
+                    comunas_str = ", ".join(available_comunas[:5])
+                    message = (
+                        f"No encontré profesionales disponibles para esa necesidad en {comuna_entity}.\n"
+                        f"Tenemos disponibles en: {comunas_str}.\n"
+                        "Prueba una de estas comunas o describe tu necesidad de otra forma."
+                    )
+                else:
+                    message = (
+                        "No encontré profesionales disponibles para esa necesidad en tu comuna.\n"
+                        "Describe el problema con más detalle o prueba otra comuna."
+                    )
+                lead.service = None
+                lead.status = "WAIT_SERVICE"
+                state.step = "WAIT_SERVICE"
+                db.commit()
+                await send_text(wa_id, message)
+                return
+
             logger.info("✅ Intent detected -> WAIT_COMUNA | intent_id=%s", nlu.intent_id)
             lead.service = f"INTENT:{nlu.intent_id}"
             lead.status = "WAIT_COMUNA"
