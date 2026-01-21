@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from .models import Provider
+from .models import Provider, ProviderCoverage
 
 
 def _norm(s: str) -> str:
@@ -16,6 +17,14 @@ def is_provider_blocked(p: Provider) -> bool:
     if not p.blocked_until:
         return False
     return p.blocked_until.replace(tzinfo=None) > datetime.utcnow()
+
+
+def _matches_comuna(provider: Provider, comuna_n: str) -> bool:
+    if not comuna_n:
+        return True
+    if provider.coverage_areas:
+        return any(_norm(cov.comuna) == comuna_n for cov in provider.coverage_areas)
+    return _norm(provider.comuna) == comuna_n
 
 
 def list_available_services(db: Session) -> list[str]:
@@ -34,12 +43,20 @@ def find_top_providers(db: Session, service: str, comuna: str, limit: int = 3) -
     """Top providers por rating (y cantidad) para servicio+comuna, excluyendo bloqueados."""
     service_n = _norm(service)
     comuna_n = _norm(comuna)
+    if not service_n or not comuna_n:
+        return []
 
     query = (
         db.query(Provider)
+        .outerjoin(ProviderCoverage, ProviderCoverage.provider_id == Provider.id)
         .filter(Provider.active == True)
-        .filter(Provider.service == service)
-        .filter(Provider.comuna == comuna)
+        .filter(func.lower(Provider.service) == service_n)
+        .filter(
+            or_(
+                func.lower(ProviderCoverage.comuna) == comuna_n,
+                and_(ProviderCoverage.id.is_(None), func.lower(Provider.comuna) == comuna_n),
+            )
+        )
         .order_by(Provider.rating_avg.desc(), Provider.rating_count.desc(), Provider.id.asc())
     )
 
@@ -52,10 +69,9 @@ def find_top_providers(db: Session, service: str, comuna: str, limit: int = 3) -
     for p in providers:
         if is_provider_blocked(p):
             continue
-        # sanity normalize on DB side (si hay diferencias de mayúsculas, no matchea; se recomienda guardar normalizado)
         if service_n and _norm(p.service) != service_n:
             continue
-        if comuna_n and _norm(p.comuna) != comuna_n:
+        if comuna_n and not _matches_comuna(p, comuna_n):
             continue
         out.append(p)
         if limit > 0 and len(out) >= limit:
