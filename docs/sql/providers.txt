@@ -1,0 +1,76 @@
+INSERT INTO providers
+(service, comuna, name, whatsapp_e164, active, rating_avg, rating_count, blocked_until, created_at)
+VALUES
+
+-- =========================
+-- 🔧 GASFITERÍA
+-- =========================
+('gasfiter','Concepción','GasFix Concepción','+56992000001',true,4.8,120,NULL,now()),
+('gasfiter','Talcahuano','Gas Talcahuano Pro','+56992000002',true,4.6,88,NULL,now()),
+('gasfiter','San Pedro de la Paz','Gas San Pedro','+56992000003',true,4.7,65,NULL,now()),
+('gasfiter','Chiguayante','Soluciones H2O Chiguayante','+56992000004',true,4.4,52,NULL,now()),
+('gasfiter','Los Ángeles','Gas LA Express','+56992000005',true,4.5,90,NULL,now()),
+
+-- =========================
+-- ⚡ ELECTRICISTAS
+-- =========================
+('electricista','Concepción','Electro Centro BioBio','+56992000006',true,4.9,210,NULL,now()),
+('electricista','Hualpén','Voltios Hualpén','+56992000007',true,4.6,97,NULL,now()),
+('electricista','Coronel','ElectroSur Coronel','+56992000008',true,4.4,76,NULL,now()),
+('electricista','Penco','Electricidad Penco','+56992000009',true,4.5,83,NULL,now()),
+('electricista','Los Ángeles','Electro Ángeles','+56992000010',true,4.7,134,NULL,now()),
+
+-- =========================
+-- 🏠 MAESTROS / MULTIUSO
+-- =========================
+('maestro','Chiguayante','Maestro Chiguayante','+56992000011',true,4.2,41,NULL,now()),
+('maestro','Hualqui','Maestro Hualqui','+56992000012',true,4.1,33,NULL,now()),
+('maestro','Florida','Servicios Hogar Florida','+56992000013',true,4.0,27,NULL,now()),
+('maestro','Santa Juana','Maestro Santa Juana','+56992000014',true,4.3,46,NULL,now()),
+('maestro','Nacimiento','Maestro Nacimiento','+56992000015',true,4.2,39,NULL,now()),
+
+-- =========================
+-- 💻 TÉCNICOS COMPUTACIÓN
+-- =========================
+('tecnico_computacion','Concepción','PC Doctor Conce','+56992000016',true,4.8,150,NULL,now()),
+('tecnico_computacion','Talcahuano','Soporte PC Talca','+56992000017',true,4.6,102,NULL,now()),
+('tecnico_computacion','San Pedro de la Paz','NotebookFix','+56992000018',true,4.7,88,NULL,now()),
+('tecnico_computacion','Los Ángeles','PC Ángeles','+56992000019',true,4.5,74,NULL,now()),
+('tecnico_computacion','Coronel','Soporte Digital Coronel','+56992000020',true,4.4,69,NULL,now()),
+
+-- =========================
+-- 🚗 MECÁNICOS
+-- =========================
+('mecanico','Concepción','Taller BioBio','+56992000021',true,4.6,110,NULL,now()),
+('mecanico','Hualpén','Mecánica Rápida','+56992000022',true,4.5,95,NULL,now()),
+('mecanico','Los Ángeles','Taller LA','+56992000023',true,4.7,130,NULL,now()),
+('mecanico','Cabrero','Mecánica Cabrero','+56992000024',true,4.4,71,NULL,now()),
+('mecanico','Yumbel','Taller Yumbel','+56992000025',true,4.3,66,NULL,now()),
+
+-- =========================
+-- 🧑‍⚖️ ABOGADOS
+-- =========================
+('abogado','Concepción','Abogados BioBio','+56992000026',true,4.9,180,NULL,now()),
+('abogado','Los Ángeles','Jurídico Ángeles','+56992000027',true,4.7,142,NULL,now()),
+('abogado','Coronel','Abogado Familia Coronel','+56992000028',true,4.6,98,NULL,now()),
+('abogado','Cañete','Estudio Jurídico Cañete','+56992000029',true,4.5,77,NULL,now()),
+('abogado','Lebu','Abogado Lebu','+56992000030',true,4.4,63,NULL,now()),
+
+-- =========================
+-- 🩺 SALUD / KINESIÓLOGOS
+-- =========================
+('kinesiologo','Concepción','Kine Activo','+56992000031',true,4.8,160,NULL,now()),
+('kinesiologo','San Pedro de la Paz','Kine Salud','+56992000032',true,4.7,134,NULL,now()),
+('kinesiologo','Los Ángeles','Kine Ángeles','+56992000033',true,4.6,98,NULL,now()),
+('kinesiologo','Chiguayante','Rehab Chiguayante','+56992000034',true,4.5,76,NULL,now()),
+('kinesiologo','Arauco','Kine Arauco','+56992000035',true,4.4,69,NULL,now()),
+
+-- =========================
+-- 🚚 TRANSPORTE / FLETES
+-- =========================
+('flete','Concepción','Fletes Conce','+56992000036',true,4.6,140,NULL,now()),
+('flete','Talcahuano','Mudanzas Puerto','+56992000037',true,4.5,118,NULL,now()),
+('flete','Los Ángeles','Fletes LA','+56992000038',true,4.7,132,NULL,now()),
+('flete','Coronel','Mudanzas Coronel','+56992000039',true,4.4,81,NULL,now()),
+('flete','Curanilahue','Fletes Curanilahue','+56992000040',true,4.3,65,NULL,now());
+

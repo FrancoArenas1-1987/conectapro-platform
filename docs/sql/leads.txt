@@ -1,0 +1,112 @@
+INSERT INTO leads (
+customer_wa_id, status, provider_id, service, comuna, customer_name,
+problem_type, urgency, sector_address,
+connected_at, followup_stage, followup_sent_at,
+user_contact_confirmed, provider_contact_confirmed,
+user_service_confirmed, provider_service_confirmed,
+rating_stars, rating_comment,
+last_activity_at, created_at
+) VALUES
+
+-- =====================
+-- 💻 COMPUTACIÓN
+-- =====================
+('56990000001','WAIT_SERVICE',NULL,'tecnico_computacion','Talcahuano','Carlos Muñoz',
+'no prende mi computador','MEDIA','Las Salinas',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000002','WAIT_SERVICE',NULL,'tecnico_computacion','Concepción','María Rojas',
+'notebook muy lento y con virus','BAJA','Centro',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000003','WAIT_SERVICE',NULL,'tecnico_computacion','San Pedro de la Paz','Juan Soto',
+'pantalla azul en windows','ALTA','Andalué',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- ⚡ ELECTRICISTAS
+-- =====================
+('56990000004','WAIT_SERVICE',NULL,'electricista','Chiguayante','Pedro González',
+'se corto la luz en parte de la casa','ALTA','Lonco',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000005','WAIT_SERVICE',NULL,'electricista','Coronel','Ana Morales',
+'instalacion de enchufes','MEDIA','Buen Retiro',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- 🔧 GASFITERÍA
+-- =====================
+('56990000006','WAIT_SERVICE',NULL,'gasfiter','Concepción','Luis Fernández',
+'fuga de agua en cocina','ALTA','Pedro de Valdivia',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000007','WAIT_SERVICE',NULL,'gasfiter','Hualpén','Marta Leiva',
+'cambio de llave de lavaplatos','BAJA','Perales',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- 🏠 MAESTROS
+-- =====================
+('56990000008','WAIT_SERVICE',NULL,'maestro','Florida','Ricardo Palma',
+'arreglo de puerta','MEDIA','Sector Rural',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000009','WAIT_SERVICE',NULL,'maestro','Santa Juana','Verónica Díaz',
+'reparacion techo','ALTA','Centro',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- 🚗 MECÁNICOS
+-- =====================
+('56990000010','WAIT_SERVICE',NULL,'mecanico','Los Ángeles','Jorge Navarrete',
+'auto no parte','ALTA','Villa Galilea',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000011','WAIT_SERVICE',NULL,'mecanico','Yumbel','Daniel Fuentes',
+'ruido en frenos','MEDIA','Centro',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- 🧑‍⚖️ ABOGADOS
+-- =====================
+('56990000012','WAIT_SERVICE',NULL,'abogado','Concepción','Paula Contreras',
+'consulta por despido','MEDIA','Collao',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000013','WAIT_SERVICE',NULL,'abogado','Cañete','Héctor Paredes',
+'problema herencia','BAJA','Centro',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- 🩺 KINESIÓLOGOS
+-- =====================
+('56990000014','WAIT_SERVICE',NULL,'kinesiologo','San Pedro de la Paz','Carolina Mena',
+'dolor lumbar','MEDIA','Huertos Familiares',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000015','WAIT_SERVICE',NULL,'kinesiologo','Los Ángeles','Felipe Riquelme',
+'rehabilitacion rodilla','ALTA','Centro',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- 🚚 FLETES
+-- =====================
+('56990000016','WAIT_SERVICE',NULL,'flete','Talcahuano','Ignacio Pérez',
+'traslado de muebles','MEDIA','Salinas',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990000017','WAIT_SERVICE',NULL,'flete','Coronel','Rosa Cárdenas',
+'mudanza completa','ALTA','Camilo Olavarría',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+-- =====================
+-- 🔁 USUARIOS REPETIDOS (IMPORTANTE PARA TEST)
+-- =====================
+('56990590045','WAIT_SERVICE',NULL,'tecnico_computacion','Talcahuano','Carlos Muñoz',
+'formatear pc','MEDIA','Las Salinas',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now()),
+
+('56990590045','WAIT_SERVICE',NULL,'electricista','Talcahuano','Carlos Muñoz',
+'instalar foco','BAJA','Las Salinas',
+now(),'START',NULL,false,false,false,false,NULL,NULL,now(),now());
