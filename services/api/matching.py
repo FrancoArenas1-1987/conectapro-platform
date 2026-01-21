@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
@@ -57,6 +58,7 @@ def find_top_providers(db: Session, service: str, comuna: str, limit: int = 3) -
                 and_(ProviderCoverage.id.is_(None), func.lower(Provider.comuna) == comuna_n),
             )
         )
+
         .order_by(Provider.rating_avg.desc(), Provider.rating_count.desc(), Provider.id.asc())
     )
 
