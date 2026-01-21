@@ -165,6 +165,13 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         wa_id, state.step, lead.id, lead.status, lead.service, lead.comuna
     )
 
+    if _is_greeting(text) and state.step != "START":
+        state.step = "START"
+        lead.status = "OPEN"
+        db.commit()
+        await send_text(wa_id, INTRO)
+        return
+
     # Service universe from DB (Provider.service values)
     services = list_available_services(db)
     logger.info("📚 Services loaded | count=%s", len(services) if services else 0)
