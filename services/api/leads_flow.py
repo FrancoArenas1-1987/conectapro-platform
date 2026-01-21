@@ -292,6 +292,9 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                         "No encontré profesionales disponibles para esa necesidad en tu comuna.\n"
                         "Describe el problema con más detalle o prueba otra comuna."
                     )
+
+                state.temp_data = state.temp_data or {}
+                state.temp_data["previous_intent"] = nlu.intent_id
                 lead.service = None
                 lead.comuna = None
 
