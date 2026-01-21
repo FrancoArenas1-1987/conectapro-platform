@@ -257,6 +257,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         if nlu.intent_id:
             comuna_entity = (nlu.entities.comuna if nlu.entities else None) if hasattr(nlu, "entities") else None
             if comuna_entity:
+
                 comuna_key, comuna_canonical = _resolve_comuna(comuna_entity, comunas_map)
                 logger.info(
                     "✅ Intent+comuna detected -> resolve service | intent_id=%s | comuna=%s",
@@ -267,6 +268,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                 if best_service:
                     lead.service = best_service
                     lead.comuna = comuna_canonical
+
                     lead.status = "WAIT_CHOICE"
                     state.step = "WAIT_CHOICE"
                     db.commit()
@@ -281,6 +283,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                     comunas_str = ", ".join(available_comunas[:5])
                     message = (
                         f"No encontré profesionales disponibles para esa necesidad en {comuna_canonical}.\n"
+
                         f"Tenemos disponibles en: {comunas_str}.\n"
                         "Prueba una de estas comunas o describe tu necesidad de otra forma."
                     )
@@ -291,6 +294,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                     )
                 lead.service = None
                 lead.comuna = None
+
                 lead.status = "WAIT_SERVICE"
                 state.step = "WAIT_SERVICE"
                 db.commit()
