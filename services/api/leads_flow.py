@@ -16,7 +16,11 @@ from services.api.models import (
     ProviderState,
     Review,
 )
-from services.api.whatsapp_cloud import send_text
+import difflib
+import re
+
+from services.api.settings import settings
+from services.api.whatsapp_cloud import send_list, send_template, send_text
 
 from services.api.nlu.engine import NLUEngine, build_service_intent_index, pick_best_service_for_intent, get_available_comunas_for_intent
 
@@ -33,8 +37,14 @@ def _normalize_text(text: str) -> str:
 # Comuna aliases for common abbreviations
 COMUNA_ALIASES = {
     "conce": "concepcion",
+    "cpt": "concepcion",
     "san pedro": "san pedro de la paz",
+    "spdp": "san pedro de la paz",
     "los angeles": "los angeles",
+    "la": "los angeles",
+    "thno": "talcahuano",
+    "talc": "talcahuano",
+    "talcahuano": "talcahuano",
     # Add more as needed
 }
 
@@ -95,17 +105,32 @@ def _parse_rating(text: str) -> int | None:
 
 
 def _match_service_from_text(text: str, services: list[str]) -> str | None:
-    t = (text or "").strip().lower()
+    t = _normalize_text(text)
     if not t:
         return None
+    tokens = [tok for tok in re.split(r"\s+", t) if len(tok) >= 3]
     for svc in services:
-        if svc and svc.lower() in t:
+        svc_norm = _normalize_text(svc)
+        if not svc_norm:
+            continue
+        if svc_norm in t or t in svc_norm:
             return svc
+        for tok in tokens:
+            if len(tok) >= 4 and (svc_norm.startswith(tok) or tok in svc_norm):
+                return svc
+            if len(tok) >= 4:
+                ratio = difflib.SequenceMatcher(None, tok, svc_norm).ratio()
+                if ratio >= 0.84:
+                    return svc
     return None
 
 
 def _normalize_comuna_key(text: str) -> str:
     text_norm = _normalize_text(text)
+    for prefix in ("en la ", "en el ", "en "):
+        if text_norm.startswith(prefix):
+            text_norm = text_norm[len(prefix):].strip()
+            break
     if text_norm == "conce":
         text_norm = "concepcion"
     return COMUNA_ALIASES.get(text_norm, text_norm)
@@ -115,6 +140,35 @@ def _resolve_comuna(text: str, comunas_map: dict[str, str]) -> tuple[str, str]:
     key = _normalize_comuna_key(text)
     canonical = comunas_map.get(key, text.strip())
     return key, canonical
+
+
+async def _send_comuna_picker(
+    wa_id: str,
+    message: str,
+    comunas: list[str],
+) -> None:
+    if not comunas:
+        await send_text(wa_id, message)
+        return
+    rows = []
+    for comuna in comunas[:10]:
+        key = _normalize_comuna_key(comuna)
+        rows.append(
+            {
+                "id": f"comuna:{key}",
+                "title": comuna,
+            }
+        )
+    if not rows:
+        await send_text(wa_id, message)
+        return
+    await send_list(
+        wa_id,
+        body_text=message,
+        button_text="Elegir comuna",
+        rows=rows,
+        section_title="Comunas disponibles",
+    )
 
 
 def _sync_state_after_options(state: ConversationState, lead: Lead) -> None:
@@ -163,6 +217,54 @@ async def _handle_provider_followup(db: Session, provider: Provider, text: str) 
     db.commit()
     await send_text(provider.whatsapp_e164, "Gracias, respuesta registrada.")
     return True
+
+
+async def _notify_provider_new_lead(provider: Provider, lead: Lead) -> None:
+    if not provider.whatsapp_e164:
+        return
+    message = (
+        "Nuevo cliente ConectaPro 👋\n"
+        f"Nombre: {lead.customer_name or 'Cliente'}\n"
+        f"Problema: {lead.problem_type or 'No especificado'}\n"
+        f"Comuna: {lead.comuna or '-'}\n"
+        f"Contacto: {lead.customer_wa_id}"
+    )
+    if settings.whatsapp_provider_template_name:
+        # Plantilla sin variables (ej: hello_world). No enviar components.
+        await send_template(
+            provider.whatsapp_e164,
+            settings.whatsapp_provider_template_name,
+            language_code=settings.whatsapp_provider_template_lang,
+        )
+
+        # Para plantilla con variables (cuando esté aprobada), descomenta este bloque
+        # y comenta el envío anterior:
+        #
+        # template_params = [
+        #     {"name": "customer_name", "value": lead.customer_name or "Cliente"},
+        #     {"name": "comuna_name", "value": lead.comuna or "-"},
+        #     {"name": "contacto", "value": lead.customer_wa_id or "-"},
+        # ]
+        # await send_template(
+        #     provider.whatsapp_e164,
+        #     settings.whatsapp_provider_template_name,
+        #     language_code=settings.whatsapp_provider_template_lang,
+        #     components=[
+        #         {
+        #             "type": "body",
+        #             "parameters": [
+        #                 {
+        #                     "type": "text",
+        #                     "text": param["value"],
+        #                     "parameter_name": param["name"],
+        #                 }
+        #                 for param in template_params
+        #             ],
+        #         }
+        #     ],
+        # )
+        return
+    await send_text(provider.whatsapp_e164, message)
 
 
 async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=None):
@@ -301,7 +403,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                 lead.status = "WAIT_SERVICE"
                 state.step = "WAIT_SERVICE"
                 db.commit()
-                await send_text(wa_id, message)
+                await _send_comuna_picker(wa_id, message, available_comunas)
                 return
 
             logger.info("✅ Intent detected -> WAIT_COMUNA | intent_id=%s", nlu.intent_id)
@@ -309,7 +411,16 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
             lead.status = "WAIT_COMUNA"
             state.step = "WAIT_COMUNA"
             db.commit()
-            await send_text(wa_id, "Perfecto. ¿En qué comuna necesitas al profesional?")
+            available_comunas = get_available_comunas_for_intent(
+                db,
+                nlu.intent_id,
+                intent_to_services,
+            )
+            await _send_comuna_picker(
+                wa_id,
+                "Perfecto. ¿En qué comuna necesitas al profesional?",
+                available_comunas,
+            )
             return
 
         service_guess = _match_service_from_text(text, services) if services else None
@@ -424,7 +535,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                 state.step = "WAIT_SERVICE"
                 state.temp_data = {}
                 db.commit()
-                await send_text(wa_id, message)
+                await _send_comuna_picker(wa_id, message, available_comunas)
                 return
         
         nlu2 = await NLU.parse_hybrid(text)
@@ -447,7 +558,16 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
             lead.status = "WAIT_COMUNA"
             state.step = "WAIT_COMUNA"
             db.commit()
-            await send_text(wa_id, "Perfecto. ¿En qué comuna necesitas al profesional?")
+            available_comunas = get_available_comunas_for_intent(
+                db,
+                nlu2.intent_id,
+                intent_to_services,
+            )
+            await _send_comuna_picker(
+                wa_id,
+                "Perfecto. ¿En qué comuna necesitas al profesional?",
+                available_comunas,
+            )
             return
 
         service_guess = _match_service_from_text(text, services) if services else None
@@ -513,7 +633,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
                     lead.status = "WAIT_SERVICE"
                     state.step = "WAIT_SERVICE"
                     db.commit()
-                    await send_text(wa_id, message)
+                    await _send_comuna_picker(wa_id, message, available_comunas)
                     return
 
                 lead.service = best_service
@@ -602,17 +722,10 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         await send_text(
             wa_id,
             "¡Listo! Compartimos tu contacto con el profesional.\n"
-            f"Su WhatsApp: {provider.whatsapp_e164 or 'no disponible'}",
+            f"{provider.name or 'Profesional'}\n"
+            "En breve el profesional te contactará.",
         )
-        if provider.whatsapp_e164:
-            await send_text(
-                provider.whatsapp_e164,
-                "Nuevo cliente ConectaPro 👋\n"
-                f"Nombre: {lead.customer_name or 'Cliente'}\n"
-                f"Problema: {lead.problem_type or 'No especificado'}\n"
-                f"Comuna: {lead.comuna or '-'}\n"
-                f"Contacto: {lead.customer_wa_id}",
-            )
+        await _notify_provider_new_lead(provider, lead)
         return
 
     # FOLLOWUP: CONTACT_CONFIRM_PENDING
