@@ -232,29 +232,43 @@ async def _notify_provider_new_lead(provider: Provider, lead: Lead) -> None:
         f"Contacto: {lead.customer_wa_id}"
     )
     if settings.whatsapp_provider_template_name:
-        template_params = [
-            {"name": "customer_name", "value": lead.customer_name or "Cliente"},
-            {"name": "comuna_name", "value": lead.comuna or "-"},
-            {"name": "contacto", "value": lead.customer_wa_id or "-"},
-        ]
+
+        # Plantilla sin variables (ej: hello_world). No enviar components.
+
         await send_template(
             provider.whatsapp_e164,
             settings.whatsapp_provider_template_name,
             language_code=settings.whatsapp_provider_template_lang,
-            components=[
-                {
-                    "type": "body",
-                    "parameters": [
-                        {
-                            "type": "text",
-                            "text": param["value"],
-                            "parameter_name": param["name"],
-                        }
-                        for param in template_params
-                    ],
-                }
-            ],
+
         )
+
+        # Para plantilla con variables (cuando esté aprobada), descomenta este bloque
+        # y comenta el envío anterior:
+        #
+        # template_params = [
+        #     {"name": "customer_name", "value": lead.customer_name or "Cliente"},
+        #     {"name": "comuna_name", "value": lead.comuna or "-"},
+        #     {"name": "contacto", "value": lead.customer_wa_id or "-"},
+        # ]
+        # await send_template(
+        #     provider.whatsapp_e164,
+        #     settings.whatsapp_provider_template_name,
+        #     language_code=settings.whatsapp_provider_template_lang,
+        #     components=[
+        #         {
+        #             "type": "body",
+        #             "parameters": [
+        #                 {
+        #                     "type": "text",
+        #                     "text": param["value"],
+        #                     "parameter_name": param["name"],
+        #                 }
+        #                 for param in template_params
+        #             ],
+        #         }
+        #     ],
+        # )
+
         return
     await send_text(provider.whatsapp_e164, message)
 
