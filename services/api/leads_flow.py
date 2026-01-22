@@ -673,7 +673,8 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
         await send_text(
             wa_id,
             "¡Listo! Compartimos tu contacto con el profesional.\n"
-            f"Su WhatsApp: {provider.whatsapp_e164 or 'no disponible'}",
+            f"{provider.name or 'Profesional'}\n"
+            "En breve el profesional te contactará.",
         )
         if provider.whatsapp_e164:
             await send_text(
