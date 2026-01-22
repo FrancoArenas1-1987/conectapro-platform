@@ -19,7 +19,10 @@ from services.api.models import (
 import difflib
 import re
 
-from services.api.whatsapp_cloud import send_list, send_text
+
+from services.api.settings import settings
+from services.api.whatsapp_cloud import send_list, send_template, send_text
+
 
 from services.api.nlu.engine import NLUEngine, build_service_intent_index, pick_best_service_for_intent, get_available_comunas_for_intent
 
@@ -216,6 +219,44 @@ async def _handle_provider_followup(db: Session, provider: Provider, text: str) 
     db.commit()
     await send_text(provider.whatsapp_e164, "Gracias, respuesta registrada.")
     return True
+
+
+async def _notify_provider_new_lead(provider: Provider, lead: Lead) -> None:
+    if not provider.whatsapp_e164:
+        return
+    message = (
+        "Nuevo cliente ConectaPro 👋\n"
+        f"Nombre: {lead.customer_name or 'Cliente'}\n"
+        f"Problema: {lead.problem_type or 'No especificado'}\n"
+        f"Comuna: {lead.comuna or '-'}\n"
+        f"Contacto: {lead.customer_wa_id}"
+    )
+    if settings.whatsapp_provider_template_name:
+        template_params = [
+            {"name": "customer_name", "value": lead.customer_name or "Cliente"},
+            {"name": "comuna_name", "value": lead.comuna or "-"},
+            {"name": "contacto", "value": lead.customer_wa_id or "-"},
+        ]
+        await send_template(
+            provider.whatsapp_e164,
+            settings.whatsapp_provider_template_name,
+            language_code=settings.whatsapp_provider_template_lang,
+            components=[
+                {
+                    "type": "body",
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": param["value"],
+                            "parameter_name": param["name"],
+                        }
+                        for param in template_params
+                    ],
+                }
+            ],
+        )
+        return
+    await send_text(provider.whatsapp_e164, message)
 
 
 async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=None):
@@ -676,15 +717,7 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
             f"{provider.name or 'Profesional'}\n"
             "En breve el profesional te contactará.",
         )
-        if provider.whatsapp_e164:
-            await send_text(
-                provider.whatsapp_e164,
-                "Nuevo cliente ConectaPro 👋\n"
-                f"Nombre: {lead.customer_name or 'Cliente'}\n"
-                f"Problema: {lead.problem_type or 'No especificado'}\n"
-                f"Comuna: {lead.comuna or '-'}\n"
-                f"Contacto: {lead.customer_wa_id}",
-            )
+        await _notify_provider_new_lead(provider, lead)
         return
 
     # FOLLOWUP: CONTACT_CONFIRM_PENDING

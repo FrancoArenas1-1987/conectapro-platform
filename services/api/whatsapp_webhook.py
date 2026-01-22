@@ -53,8 +53,17 @@ async def whatsapp_webhook(request: Request):
 
     # Status updates (delivered/read/etc.)
     if has_statuses and not has_messages:
-        kinds = [s.get("status") for s in value.get("statuses", [])]
-        logger.info("ℹ️ Status event (ignored) | kinds=%s", kinds)
+        statuses = value.get("statuses", [])
+        kinds = [s.get("status") for s in statuses]
+        logger.info("ℹ️ Status event | kinds=%s", kinds)
+        for status in statuses:
+            if status.get("status") == "failed":
+                logger.warning(
+                    "❌ WA message failed | id=%s | recipient_id=%s | errors=%s",
+                    status.get("id"),
+                    status.get("recipient_id"),
+                    status.get("errors"),
+                )
         return {"ok": True}
 
     if not has_messages:
