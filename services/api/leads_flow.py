@@ -19,8 +19,10 @@ from services.api.models import (
 import difflib
 import re
 
+
 from services.api.settings import settings
 from services.api.whatsapp_cloud import send_list, send_template, send_text
+
 
 from services.api.nlu.engine import NLUEngine, build_service_intent_index, pick_best_service_for_intent, get_available_comunas_for_intent
 
