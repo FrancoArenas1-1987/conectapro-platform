@@ -105,6 +105,7 @@ async def send_list(
         raise
 
 
+
 async def send_template(
     to_wa_id: str,
     template_name: str,
@@ -154,3 +155,4 @@ async def send_template(
     except Exception:
         logger.exception("WA SEND EXCEPTION to=%s", to_wa_id)
         raise
+

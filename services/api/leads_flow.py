@@ -19,8 +19,10 @@ from services.api.models import (
 import difflib
 import re
 
+
 from services.api.settings import settings
 from services.api.whatsapp_cloud import send_list, send_template, send_text
+
 
 from services.api.nlu.engine import NLUEngine, build_service_intent_index, pick_best_service_for_intent, get_available_comunas_for_intent
 
@@ -230,11 +232,14 @@ async def _notify_provider_new_lead(provider: Provider, lead: Lead) -> None:
         f"Contacto: {lead.customer_wa_id}"
     )
     if settings.whatsapp_provider_template_name:
+
         # Plantilla sin variables (ej: hello_world). No enviar components.
+
         await send_template(
             provider.whatsapp_e164,
             settings.whatsapp_provider_template_name,
             language_code=settings.whatsapp_provider_template_lang,
+
         )
 
         # Para plantilla con variables (cuando esté aprobada), descomenta este bloque
@@ -263,6 +268,7 @@ async def _notify_provider_new_lead(provider: Provider, lead: Lead) -> None:
         #         }
         #     ],
         # )
+
         return
     await send_text(provider.whatsapp_e164, message)
 
