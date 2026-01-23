@@ -24,6 +24,7 @@ from services.api.settings import settings
 from services.api.whatsapp_cloud import send_list, send_template, send_text
 
 
+from services.api.llm_router import try_handle_llm
 from services.api.nlu.engine import NLUEngine, build_service_intent_index, pick_best_service_for_intent, get_available_comunas_for_intent
 
 logger = setup_logging("leads_flow")
@@ -339,6 +340,10 @@ async def handle_user_incoming(db: Session, wa_id: str, text: str, raw_message=N
     if _is_greeting(text) and state.step == "START":
         await send_text(wa_id, INTRO)
         return
+
+    if await try_handle_llm(db=db, wa_id=wa_id, text=text, state=state, lead=lead):
+        return
+
     if state.step == "START":
         if _is_greeting(text):
             logger.info("👋 Greeting detected -> sending INTRO")
