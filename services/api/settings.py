@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id: str = ""
     whatsapp_access_token: str = ""
     whatsapp_graph_version: str = "v20.0"
+    whatsapp_provider_template_name: str = ""
+    whatsapp_provider_template_lang: str = "es_ES"
 
     # DB
     database_url: str = "postgresql+psycopg://conectapro:conectapro@db:5432/conectapro"

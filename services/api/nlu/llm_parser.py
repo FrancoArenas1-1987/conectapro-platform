@@ -64,6 +64,7 @@ async def try_llm_parse(text: str, intents: list[IntentDef]) -> Optional[NLUResu
         "Debes elegir intent_id SOLO desde la lista permitida.\n"
         "Si el texto no es claro o hay 2 opciones probables, marca need_clarification=true.\n"
         "NO inventes comunas; si no está explícita, deja comuna=null.\n"
+        "Puedes normalizar abreviaciones explícitas (ej: 'conce' -> 'Concepción', 'thno' -> 'Talcahuano').\n"
         "Responde estrictamente según el JSON schema."
     )
 
