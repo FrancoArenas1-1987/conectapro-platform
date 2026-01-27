@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4.1-mini"
     openai_min_confidence: float = 0.85
     openai_timeout_seconds: int = 20
+    llm_orchestrator_enabled: int = 0
 
     # Allowlists (mínimo viable)
     allow_services: str = "Electricidad,Gasfiteria,Cerrajeria"

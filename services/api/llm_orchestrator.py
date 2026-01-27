@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from services.common.logging_config import setup_logging
+from .knowledge_base import describe_conectapro
+from .matching import find_top_providers, list_available_services
 from .models import Provider, ProviderCoverage
 from .nlu.engine import _norm
+from .settings import settings
 
 logger = setup_logging("llm_orchestrator")
 
@@ -19,7 +22,7 @@ class LLMOrchestrator:
     inferencias, consultas a DB y generación de respuestas.
     """
 
-    def __init__(self, api_key: str, model: str = "gpt-3.5-turbo"):
+    def __init__(self, api_key: str, model: str = "gpt-4.1-mini"):
         self.client = OpenAI(api_key=api_key)
         self.model = model
 
@@ -45,9 +48,13 @@ class LLMOrchestrator:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "system", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": user_message},
+                ],
                 tools=tools,
-                tool_choice="auto"
+                tool_choice="auto",
+                timeout=settings.openai_timeout_seconds,
             )
 
             message = response.choices[0].message
@@ -99,24 +106,32 @@ Contexto de la conversación:
 Mensaje del usuario: "{user_message}"
 
 Instrucciones:
-IMPORTANTE: Siempre debes usar las tools para cualquier consulta a la base de datos. Nunca respondas con información directa de la DB. Usa tools obligatoriamente.
-- Si el usuario pide un servicio (ej: "busco kinesiólogo"), usa get_available_comunas para listar comunas disponibles.
-- No uses get_available_comunas si ya hay un servicio seleccionado en el contexto.
-- Si el usuario menciona una comuna específica (ej: "concepcion", "conce") y hay un servicio seleccionado en el contexto, OBLIGATORIAMENTE usa query_providers para buscar proveedores en esa comuna.
-- Si el usuario menciona una comuna sin servicio seleccionado, pide que especifique el servicio.
+IMPORTANTE: Siempre debes usar tools para consultar datos. Nunca respondas con información directa de la DB.
+- Si el usuario pregunta "qué es ConectaPro" o pide explicación, usa describe_conectapro.
+- Si el usuario pide servicios disponibles, usa list_services.
+- Si el usuario pide comunas, usa list_comunas (con service si aplica).
+- Si el usuario menciona una comuna específica y hay un servicio, usa query_providers.
+- Si el usuario menciona comuna sin servicio, pide especificar el servicio.
 - Maneja abreviaturas comunes (ej: "conce" = "Concepción").
 - Ejemplos:
-  - Mensaje: "busco kine" → Usa get_available_comunas con service="kinesiologo"
+  - Mensaje: "busco kine" → Usa list_comunas con service="kinesiologo"
   - Mensaje: "concepcion" (con service="kinesiologo") → Usa query_providers con service="kinesiologo", comuna="concepcion"
   - Mensaje: "busco kine en concepcion" → Usa query_providers con service="kinesiologo", comuna="concepcion"
-- Responde de manera amigable y humana solo después de usar tools.
-- Avanza el proceso: después de listar comunas, espera selección de comuna; después de comuna, envía opciones.
+- Responde de manera clara y amigable después de usar tools.
 
 Responde como orquestador: decide qué hacer y usa tools si es necesario.
 """
 
     def _define_tools(self) -> List[Dict]:
         return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "describe_conectapro",
+                    "description": "Entrega una explicación breve y clara de ConectaPro.",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
             {
                 "type": "function",
                 "function": {
@@ -141,8 +156,8 @@ Responde como orquestador: decide qué hacer y usa tools si es necesario.
             {
                 "type": "function",
                 "function": {
-                    "name": "get_available_comunas",
-                    "description": "Obtiene las comunas disponibles para un servicio específico.",
+                    "name": "list_comunas",
+                    "description": "Obtiene comunas disponibles para un servicio o generales.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -151,9 +166,17 @@ Responde como orquestador: decide qué hacer y usa tools si es necesario.
                                 "description": "El nombre del servicio"
                             }
                         },
-                        "required": ["service"]
+                        "required": []
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_services",
+                    "description": "Lista servicios disponibles en la plataforma.",
+                    "parameters": {"type": "object", "properties": {}},
+                },
             },
             {
                 "type": "function",
@@ -184,6 +207,13 @@ Responde como orquestador: decide qué hacer y usa tools si es necesario.
             from .models import Lead
             lead = db.query(Lead).filter(Lead.id == lead_id).first()
 
+        if name == "describe_conectapro":
+            return {"type": "describe_conectapro", "result": describe_conectapro()}
+
+        if name == "list_services":
+            services = list_available_services(db)
+            return {"type": "list_services", "result": services}
+
         if name == "query_providers":
             service = args.get("service")
             comuna = args.get("comuna")
@@ -199,16 +229,17 @@ Responde como orquestador: decide qué hacer y usa tools si es necesario.
                 db.commit()
             return {"type": "query_providers", "result": providers}
 
-        elif name == "get_available_comunas":
+        if name == "list_comunas":
             service = args.get("service")
             comunas = self._get_comunas(db, service)
             # Update lead
             if lead:
-                lead.service = service
+                if service:
+                    lead.service = service
                 db.commit()
-            return {"type": "get_available_comunas", "result": comunas}
+            return {"type": "list_comunas", "result": comunas}
 
-        elif name == "send_options":
+        if name == "send_options":
             lead_id = args.get("lead_id")
             # Lógica para enviar opciones
             return {"type": "send_options", "lead_id": lead_id}
@@ -216,35 +247,30 @@ Responde como orquestador: decide qué hacer y usa tools si es necesario.
         return {}
 
     def _query_providers(self, db: Session, service: str, comuna_norm: str) -> List[Dict]:
-        # Similar a pick_best_service_for_intent
-        rows = (
-            db.query(Provider.id, Provider.service, Provider.rating_avg, ProviderCoverage.comuna)
-            .join(ProviderCoverage, ProviderCoverage.provider_id == Provider.id)
-            .filter(Provider.active == True)
-            .filter(Provider.service == service)
-            .all()
-        )
-        providers = []
-        for row in rows:
-            cov_comuna = row[3]
-            if _norm(cov_comuna) == comuna_norm:
-                providers.append({
-                    "id": row[0],
-                    "service": row[1],
-                    "rating": row[2]
-                })
-        return providers
+        if not service or not comuna_norm:
+            return []
+        providers = find_top_providers(db, service=service, comuna=comuna_norm, limit=3)
+        return [
+            {"id": provider.id, "service": provider.service, "rating": provider.rating_avg}
+            for provider in providers
+        ]
 
     def _get_comunas(self, db: Session, service: str) -> List[str]:
-        rows = (
+        rows_cov = (
             db.query(ProviderCoverage.comuna)
             .join(Provider, Provider.id == ProviderCoverage.provider_id)
             .filter(Provider.active == True)
-            .filter(Provider.service == service)
-            .distinct()
-            .all()
         )
-        return [row[0] for row in rows]
+        rows_direct = (
+            db.query(Provider.comuna)
+            .filter(Provider.active == True)
+        )
+        if service:
+            rows_cov = rows_cov.filter(Provider.service == service)
+            rows_direct = rows_direct.filter(Provider.service == service)
+        comunas = {row[0] for row in rows_cov.distinct().all() if row[0]}
+        comunas |= {row[0] for row in rows_direct.distinct().all() if row[0]}
+        return sorted(comunas)
 
     def _generate_final_response(self, actions: List[Dict], context: Dict) -> str:
         # Basado en acciones, generar respuesta
@@ -253,17 +279,20 @@ Responde como orquestador: decide qué hacer y usa tools si es necesario.
             return ""  # No enviar mensaje adicional si ya se envían opciones
         
         for action in actions:
-            if action["type"] == "query_providers" and action["result"]:
-                providers = action["result"]
+            if action["type"] == "query_providers":
+                providers = action.get("result") or []
                 if providers:
-                    # Enviar opciones automáticamente
                     return f"Encontré {len(providers)} proveedores. Enviando opciones..."
-                else:
-                    return "No encontré proveedores en esa comuna."
-            elif action["type"] == "get_available_comunas":
-                comunas = action["result"]
+                return "No encontré proveedores en esa comuna."
+            if action["type"] == "list_comunas":
+                comunas = action.get("result") or []
                 return f"Disponible en: {', '.join(comunas[:5])}"
-            elif action["type"] == "send_options":
+            if action["type"] == "list_services":
+                services = action.get("result") or []
+                return f"Servicios disponibles: {', '.join(services[:8])}"
+            if action["type"] == "describe_conectapro":
+                return action.get("result") or "ConectaPro conecta personas con profesionales."
+            if action["type"] == "send_options":
                 return "Opciones enviadas."
         return "Procesé tu solicitud."
 
@@ -274,9 +303,8 @@ orchestrator = None
 def get_orchestrator() -> LLMOrchestrator:
     global orchestrator
     if orchestrator is None:
-        import os
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = settings.openai_api_key
         if not api_key:
             raise ValueError("OPENAI_API_KEY not set")
-        orchestrator = LLMOrchestrator(api_key)
+        orchestrator = LLMOrchestrator(api_key, model=settings.openai_model)
     return orchestrator

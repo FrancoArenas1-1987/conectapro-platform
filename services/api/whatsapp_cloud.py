@@ -40,9 +40,12 @@ async def send_text(to_wa_id: str, text: str) -> dict:
         r.raise_for_status()
         return r.json()
 
+    except httpx.HTTPStatusError as exc:
+        logger.exception("WA SEND EXCEPTION to=%s status=%s", to_wa_id, exc.response.status_code)
+        return {"ok": False, "status_code": exc.response.status_code, "error": exc.response.text}
     except Exception:
         logger.exception("WA SEND EXCEPTION to=%s", to_wa_id)
-        raise
+        return {"ok": False, "error": "unexpected_error"}
 
 
 async def send_list(
@@ -100,9 +103,12 @@ async def send_list(
 
         r.raise_for_status()
         return r.json()
+    except httpx.HTTPStatusError as exc:
+        logger.exception("WA SEND EXCEPTION to=%s status=%s", to_wa_id, exc.response.status_code)
+        return {"ok": False, "status_code": exc.response.status_code, "error": exc.response.text}
     except Exception:
         logger.exception("WA SEND EXCEPTION to=%s", to_wa_id)
-        raise
+        return {"ok": False, "error": "unexpected_error"}
 
 
 
@@ -152,7 +158,9 @@ async def send_template(
 
         r.raise_for_status()
         return r.json()
+    except httpx.HTTPStatusError as exc:
+        logger.exception("WA SEND EXCEPTION to=%s status=%s", to_wa_id, exc.response.status_code)
+        return {"ok": False, "status_code": exc.response.status_code, "error": exc.response.text}
     except Exception:
         logger.exception("WA SEND EXCEPTION to=%s", to_wa_id)
-        raise
-
+        return {"ok": False, "error": "unexpected_error"}
